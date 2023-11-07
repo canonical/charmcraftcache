@@ -5,8 +5,13 @@ description = ""
 authors = ["Carl Csaposs <carl.csaposs@canonical.com>"]
 readme = "README.md"
 
+[tool.poetry.scripts]
+ccc = "charmcraftcache.main:app"
+charmcraftcache = "charmcraftcache.main:app"
+
 [tool.poetry.dependencies]
 python = "^3.10"
+typer = "^0.9.0"
 
 
 [build-system]
