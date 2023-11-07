@@ -33,7 +33,10 @@ def pack(cache: bool = True):
         cache_directory.mkdir(parents=True, exist_ok=True)
         # TODO: download wheels
     # TODO: add status output
-    subprocess.run(command, check=True, env=env)
+    try:
+        subprocess.run(command, capture_output=True, check=True, env=env)
+    except subprocess.CalledProcessError as e:
+        raise Exception(e.stderr)
 
 
 @app.command()
