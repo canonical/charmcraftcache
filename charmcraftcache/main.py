@@ -29,8 +29,8 @@ def pack(cache: bool = True):
     # Pack charm
     env = os.environ
     if cache:
-        cache_directory.mkdir(parents=True, exist_ok=True)
         env["CRAFT_SHARED_CACHE"] = str(cache_directory)
+        cache_directory.mkdir(parents=True, exist_ok=True)
         # TODO: download wheels
     # TODO: add status output
     subprocess.run(command, check=True, env=env)
@@ -39,7 +39,10 @@ def pack(cache: bool = True):
 @app.command()
 def clean():
     # TODO: add status output
-    shutil.rmtree(cache_directory)
+    try:
+        shutil.rmtree(cache_directory)
+    except FileNotFoundError:
+        pass
     subprocess.run(["charmcraft", "clean"], check=True)
 
 
