@@ -11,7 +11,7 @@ charmcraftcache = "charmcraftcache.main:app"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-typer = "^0.9.0"
+typer = {extras = ["all"], version = "^0.9.0"}
 
 [tool.poetry.group.format.dependencies]
 black = "^23.10.1"
