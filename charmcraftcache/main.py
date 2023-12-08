@@ -64,6 +64,7 @@ def pack(cache: bool = True):
                         },
                         stream=True,
                     )
+                    response.raise_for_status()
                     name, parent = (
                         asset["name"]
                         .removesuffix(".charmcraftcachehub")

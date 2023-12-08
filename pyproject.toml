@@ -11,9 +11,9 @@ charmcraftcache = "charmcraftcache.main:app"
 
 [tool.poetry.dependencies]
 python = "^3.10"
+pip = "^23.3.1"
 typer = {extras = ["all"], version = "^0.9.0"}
 requests = "^2.31.0"
-pip = ">=22.2"
 
 [tool.poetry.group.format.dependencies]
 black = "^23.10.1"
