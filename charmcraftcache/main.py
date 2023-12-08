@@ -38,7 +38,7 @@ def pack(cache: bool = True):
     if cache:
         env["CRAFT_SHARED_CACHE"] = str(cache_directory)
         charmcraft_cache_subdirectory = (
-            cache_directory / "charmcraft-buildd-base-v2.0/BuilddBaseAlias.JAMMY"
+            cache_directory / "charmcraft-buildd-base-v5.0/BuilddBaseAlias.JAMMY"
         )
         charmcraft_cache_subdirectory.mkdir(parents=True, exist_ok=True)
         response = requests.get(
