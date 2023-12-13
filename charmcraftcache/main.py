@@ -4,16 +4,63 @@ import pathlib
 import shutil
 import subprocess
 import sys
+import typing_extensions
 
 import requests
+import rich
+import rich.console
+import rich.progress
+import rich.logging
+import rich.highlighter
+import logging
 import typer
 
 app = typer.Typer()
+Verbose = typing_extensions.Annotated[bool, typer.Option("--verbose", "-v")]
+console = rich.console.Console(highlight=False)
+logger = logging.getLogger(__name__)
+handler = rich.logging.RichHandler(
+    console=console,
+    show_time=False,
+    omit_repeated_times=False,
+    show_level=False,
+    show_path=False,
+    highlighter=rich.highlighter.NullHighlighter(),
+)
+
+
+class State:
+    def __init__(self):
+        self.verbose = False
+
+    @property
+    def verbose(self):
+        return self._verbose
+
+    @verbose.setter
+    def verbose(self, value: bool):
+        self._verbose = value
+        log_format = "[charmcraftcache] {message}"
+        if value:
+            log_format = "{asctime} " + log_format
+            logger.setLevel(logging.DEBUG)
+        else:
+            logger.setLevel(logging.INFO)
+        logger.removeHandler(handler)
+        handler.setFormatter(
+            logging.Formatter(log_format, datefmt="%Y-%m-%d %H:%M:%S", style="{")
+        )
+        logger.addHandler(handler)
 
 
 @app.command()
-def pack():
+def pack(verbose_: Verbose = False):
+    if verbose_:
+        # Verbose can be globally enabled from command level or app level
+        # (Therefore, we should only enable verbose—not disable it)
+        state.verbose = True
     cache_directory.mkdir(parents=True, exist_ok=True)
+    logger.info("Resolving dependencies")
     report_file = cache_directory / "report.json"
     subprocess.run(
         [
@@ -28,6 +75,7 @@ def pack():
             "--report",
             str(report_file),
         ],
+        stdout=None if state.verbose else subprocess.DEVNULL,
         check=True,
     )
     with open(report_file, "r") as file:
@@ -41,6 +89,7 @@ def pack():
         cache_directory / "charmcraft-buildd-base-v5.0/BuilddBaseAlias.JAMMY"
     )
     charmcraft_cache_subdirectory.mkdir(parents=True, exist_ok=True)
+    logger.debug("Getting latest charmcraftcache-hub release via GitHub API")
     response = requests.get(
         "https://api.github.com/repos/carlcsaposs-canonical/charmcraftcache-hub/releases/latest",
         headers={
@@ -49,8 +98,11 @@ def pack():
         },
     )
     response.raise_for_status()
-    print("foo")
-    for asset in response.json()["assets"]:
+    for asset in rich.progress.track(
+        response.json()["assets"],
+        description="\[charmcraftcache] Downloading wheels",
+        console=console,
+    ):
         for dependency in dependencies:
             if asset["name"].startswith(
                 f'{dependency["metadata"]["name"].replace("-", "_")}-{dependency["metadata"]["version"]}-'
@@ -76,12 +128,14 @@ def pack():
                 with open(file_path, "wb") as file:
                     for chunk in response.iter_content():
                         file.write(chunk)
-                print("downloaded")
+                logger.debug(f"Downloaded {name}")
                 break
-    print("packing")
-    # TODO: add status output
+    logger.info("Packing charm")
+    command = ["charmcraft", "pack"]
+    if state.verbose:
+        command.append("-v")
     try:
-        subprocess.run(["charmcraft", "pack", "-v"], check=True, env=env)
+        subprocess.run(command, check=True, env=env)
     except FileNotFoundError:
         raise Exception("charmcraft not installed")
     except subprocess.CalledProcessError as e:
@@ -98,4 +152,13 @@ def clean():
     subprocess.run(["charmcraft", "clean"], check=True)
 
 
+@app.callback()
+def main(verbose: Verbose = False):
+    if verbose:
+        # Verbose can be globally enabled from app level or command level
+        # (Therefore, we should only enable verbose—not disable it)
+        state.verbose = True
+
+
 cache_directory = pathlib.Path("~/.cache/charmcraftcache/").expanduser()
+state = State()
