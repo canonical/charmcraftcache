@@ -53,7 +53,7 @@ def pack(cache: bool = True):
         for asset in response.json()["assets"]:
             for dependency in dependencies:
                 if asset["name"].startswith(
-                    f'{dependency["metadata"]["name"]}-{dependency["metadata"]["version"]}-'
+                    f'{dependency["metadata"]["name"].replace("-", "_")}-{dependency["metadata"]["version"]}-'
                 ):
                     # Download wheel
                     response = requests.get(
