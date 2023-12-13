@@ -36,6 +36,7 @@ def pack():
     # Pack charm
     env = os.environ
     env["CRAFT_SHARED_CACHE"] = str(cache_directory)
+    # TODO: remove hardcoded path
     charmcraft_cache_subdirectory = (
         cache_directory / "charmcraft-buildd-base-v5.0/BuilddBaseAlias.JAMMY"
     )
