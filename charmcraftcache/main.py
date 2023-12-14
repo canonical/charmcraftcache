@@ -183,10 +183,10 @@ def pack(verbose_: Verbose = False):
 def clean_cache():
     logger.info("Deleting cached wheels")
     try:
-        shutil.rmtree(cache_directory)
+        shutil.rmtree(charmcraft_cache_subdirectory)
     except FileNotFoundError:
         pass
-    cache_directory.mkdir(parents=True, exist_ok=True)
+    charmcraft_cache_subdirectory.mkdir(parents=True, exist_ok=True)
 
 
 @app.command()
