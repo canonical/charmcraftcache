@@ -1,3 +1,4 @@
+import importlib.metadata
 import json
 import logging
 import os
@@ -72,6 +73,8 @@ def run_charmcraft(command: list[str]):
         )
     env = os.environ
     env["CRAFT_SHARED_CACHE"] = str(cache_directory)
+    if state.verbose:
+        command.append("-v")
     try:
         subprocess.run(["charmcraft", *command], check=True, env=env)
     except subprocess.CalledProcessError as e:
@@ -84,7 +87,6 @@ def pack(verbose_: Verbose = False):
         # Verbose can be globally enabled from command level or app level
         # (Therefore, we should only enable verbose—not disable it)
         state.verbose = True
-    cache_directory.mkdir(parents=True, exist_ok=True)
     logger.info("Resolving dependencies")
     report_file = cache_directory / "report.json"
     subprocess.run(
@@ -155,18 +157,22 @@ def pack(verbose_: Verbose = False):
                 break
     logger.info("Packing charm")
     command = ["pack"]
-    if state.verbose:
-        command.append("-v")
     run_charmcraft(command)
 
 
-@app.command()
-def clean():
-    # TODO: add status output
+def clean_cache():
+    logger.info("Deleting cached wheels")
     try:
         shutil.rmtree(cache_directory)
     except FileNotFoundError:
         pass
+    cache_directory.mkdir(parents=True, exist_ok=True)
+
+
+@app.command()
+def clean():
+    clean_cache()
+    logger.info("Running `charmcraft clean`")
     run_charmcraft(["clean"])
 
 
@@ -179,4 +185,17 @@ def main(verbose: Verbose = False):
 
 
 cache_directory = pathlib.Path("~/.cache/charmcraftcache/").expanduser()
+cache_directory.mkdir(parents=True, exist_ok=True)
 state = State()
+charmcraftcache_version = importlib.metadata.version("charmcraftcache")
+version_file = cache_directory / "version.txt"
+try:
+    last_version = version_file.read_text()
+except FileNotFoundError:
+    pass
+else:
+    if last_version != charmcraftcache_version:
+        logger.info("Update detected. Cleaning cache")
+        clean_cache()
+finally:
+    version_file.write_text(charmcraftcache_version)
