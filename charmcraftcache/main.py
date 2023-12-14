@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import pathlib
 import shutil
@@ -6,14 +7,17 @@ import subprocess
 import sys
 import typing_extensions
 
+import packaging.version
 import requests
 import rich
 import rich.console
 import rich.progress
 import rich.logging
 import rich.highlighter
-import logging
+import rich.logging
+import rich.progress
 import typer
+import typing_extensions
 
 app = typer.Typer()
 Verbose = typing_extensions.Annotated[bool, typer.Option("--verbose", "-v")]
@@ -53,6 +57,30 @@ class State:
         logger.addHandler(handler)
 
 
+def run_charmcraft(command: list[str]):
+    try:
+        version = json.loads(
+            subprocess.run(
+                ["charmcraft", "version", "--format", "json"],
+                capture_output=True,
+                check=True,
+                encoding="utf-8",
+            ).stdout
+        )["version"]
+    except FileNotFoundError:
+        version = None
+    if packaging.version.parse(version or "0.0.0") < packaging.version.parse("2.5.4"):
+        raise Exception(
+            f'charmcraft {version or "not"} installed. charmcraft >=2.5.4 required'
+        )
+    env = os.environ
+    env["CRAFT_SHARED_CACHE"] = str(cache_directory)
+    try:
+        subprocess.run(["charmcraft", *command], check=True, env=env)
+    except subprocess.CalledProcessError as e:
+        raise Exception(e.stderr)
+
+
 @app.command()
 def pack(verbose_: Verbose = False):
     if verbose_:
@@ -82,8 +110,6 @@ def pack(verbose_: Verbose = False):
         report = json.load(file)
     dependencies = report["install"]
     # Pack charm
-    env = os.environ
-    env["CRAFT_SHARED_CACHE"] = str(cache_directory)
     # TODO: remove hardcoded path
     charmcraft_cache_subdirectory = (
         cache_directory / "charmcraft-buildd-base-v5.0/BuilddBaseAlias.JAMMY"
@@ -131,15 +157,10 @@ def pack(verbose_: Verbose = False):
                 logger.debug(f"Downloaded {name}")
                 break
     logger.info("Packing charm")
-    command = ["charmcraft", "pack"]
+    command = ["pack"]
     if state.verbose:
         command.append("-v")
-    try:
-        subprocess.run(command, check=True, env=env)
-    except FileNotFoundError:
-        raise Exception("charmcraft not installed")
-    except subprocess.CalledProcessError as e:
-        raise Exception(e.stderr)
+    run_charmcraft(command)
 
 
 @app.command()
@@ -149,7 +170,7 @@ def clean():
         shutil.rmtree(cache_directory)
     except FileNotFoundError:
         pass
-    subprocess.run(["charmcraft", "clean"], check=True)
+    run_charmcraft(["clean"])
 
 
 @app.callback()
