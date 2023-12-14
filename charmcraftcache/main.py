@@ -126,7 +126,7 @@ def pack(verbose_: Verbose = False):
         },
     )
     response.raise_for_status()
-    # Example: build-1702560309-v1
+    # Example: build-1702562019-v1
     release_name = response.json()["name"]
     # Example: v1
     hub_version = release_name.split("-")[-1]
