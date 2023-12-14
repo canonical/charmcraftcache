@@ -195,7 +195,9 @@ except FileNotFoundError:
     pass
 else:
     if last_version != charmcraftcache_version:
-        logger.info("Update detected. Cleaning cache")
+        logger.info(
+            f"Update from {last_version} to {charmcraftcache_version} detected. Cleaning cache"
+        )
         clean_cache()
 finally:
     version_file.write_text(charmcraftcache_version)
