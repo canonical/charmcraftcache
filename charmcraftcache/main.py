@@ -187,6 +187,7 @@ def main(verbose: Verbose = False):
 cache_directory = pathlib.Path("~/.cache/charmcraftcache/").expanduser()
 cache_directory.mkdir(parents=True, exist_ok=True)
 state = State()
+# Clean cache if `charmcraftcache` was updated
 charmcraftcache_version = importlib.metadata.version("charmcraftcache")
 version_file = cache_directory / "version.txt"
 try:
