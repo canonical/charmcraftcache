@@ -156,8 +156,7 @@ def pack(verbose_: Verbose = False):
                 logger.debug(f"Downloaded {name}")
                 break
     logger.info("Packing charm")
-    command = ["pack"]
-    run_charmcraft(command)
+    run_charmcraft(["pack"])
 
 
 def clean_cache():
