@@ -5,14 +5,11 @@ import pathlib
 import shutil
 import subprocess
 import sys
-import typing_extensions
 
 import packaging.version
 import requests
 import rich
 import rich.console
-import rich.progress
-import rich.logging
 import rich.highlighter
 import rich.logging
 import rich.progress
