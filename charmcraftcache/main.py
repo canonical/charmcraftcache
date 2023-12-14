@@ -231,10 +231,10 @@ def clean_cache_if_version_changed(version_type: VersionType, current_version: s
         file.write_text(current_version)
 
 
+state = State()
 cache_directory = pathlib.Path("~/.cache/charmcraftcache/").expanduser()
 cache_directory.mkdir(parents=True, exist_ok=True)
 charmcraft_cache_subdirectory = cache_directory / "charmcraft"
-state = State()
 clean_cache_if_version_changed(
     VersionType.CHARMCRAFTCACHE, importlib.metadata.version("charmcraftcache")
 )
