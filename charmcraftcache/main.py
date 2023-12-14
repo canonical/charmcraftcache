@@ -126,9 +126,11 @@ def pack(verbose_: Verbose = False):
         },
     )
     response.raise_for_status()
-    clean_cache_if_version_changed(
-        VersionType.CHARMCRAFTCACHE_HUB, response.json()["name"].split("-")[-1]
-    )
+    # Example: build-1702560309-v1
+    release_name = response.json()["name"]
+    # Example: v1
+    hub_version = release_name.split("-")[-1]
+    clean_cache_if_version_changed(VersionType.CHARMCRAFTCACHE_HUB, hub_version)
     for dependency in rich.progress.track(
         dependencies,
         description="\[charmcraftcache] Downloading wheels",
