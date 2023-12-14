@@ -118,15 +118,33 @@ def pack(verbose_: Verbose = False):
     )
     build_base_subdirectory.mkdir(parents=True, exist_ok=True)
     logger.debug("Getting latest charmcraftcache-hub release via GitHub API")
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    etag_file = cache_directory / "latest_release_etag.txt"
+    try:
+        etag = etag_file.read_text()
+    except FileNotFoundError:
+        pass
+    else:
+        headers["If-None-Match"] = etag
     response = requests.get(
         "https://api.github.com/repos/carlcsaposs-canonical/charmcraftcache-hub/releases/latest",
-        headers={
-            "Accept": "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-        },
+        headers=headers,
     )
     response.raise_for_status()
-    response_data = response.json()
+    response_data_file = cache_directory / "latest_release.json"
+    if response.status_code == 304:
+        logger.debug("HTTP cache hit for latest release")
+        with open(response_data_file, "r") as file:
+            response_data = json.load(file)
+    else:
+        logger.debug("HTTP cache miss for latest release")
+        response_data = response.json()
+        with open(response_data_file, "w") as file:
+            json.dump(response_data, file)
+        etag_file.write_text(response.headers["ETag"])
     # Example: build-1702562019-v1
     release_name = response_data["name"]
     # Example: v1
@@ -143,8 +161,6 @@ def pack(verbose_: Verbose = False):
             if asset["name"].startswith(
                 f'{dependency_name.replace("-", "_")}-{dependency_version}-'
             ):
-                # todo: wrap request, handle rate limit?
-                # todo: add github auth for rate limit?
                 name, parent = (
                     asset["name"]
                     .removesuffix(".charmcraftcachehub")
@@ -197,6 +213,7 @@ def clean():
 
 
 # todo: add command for adding charm to charmcraftcache-hub
+# todo: add github auth for rate limit?
 
 
 @app.callback()
