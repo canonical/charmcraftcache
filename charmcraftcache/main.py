@@ -126,8 +126,9 @@ def pack(verbose_: Verbose = False):
         },
     )
     response.raise_for_status()
+    response_data = response.json()
     # Example: build-1702562019-v1
-    release_name = response.json()["name"]
+    release_name = response_data["name"]
     # Example: v1
     hub_version = release_name.split("-")[-1]
     clean_cache_if_version_changed(VersionType.CHARMCRAFTCACHE_HUB, hub_version)
@@ -138,7 +139,7 @@ def pack(verbose_: Verbose = False):
     ):
         dependency_name = dependency["metadata"]["name"]
         dependency_version = dependency["metadata"]["version"]
-        for asset in response.json()["assets"]:
+        for asset in response_data["assets"]:
             if asset["name"].startswith(
                 f'{dependency_name.replace("-", "_")}-{dependency_version}-'
             ):
