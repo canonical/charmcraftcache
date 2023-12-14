@@ -111,13 +111,12 @@ def pack(verbose_: Verbose = False):
     with open(report_file, "r") as file:
         report = json.load(file)
     dependencies = report["install"]
-    # Pack charm
     # TODO: remove hardcoded path
-    build_base_cache_subdirectory = (
+    build_base_subdirectory = (
         charmcraft_cache_subdirectory
         / "charmcraft-buildd-base-v5.0/BuilddBaseAlias.JAMMY"
     )
-    build_base_cache_subdirectory.mkdir(parents=True, exist_ok=True)
+    build_base_subdirectory.mkdir(parents=True, exist_ok=True)
     logger.debug("Getting latest charmcraftcache-hub release via GitHub API")
     response = requests.get(
         "https://api.github.com/repos/carlcsaposs-canonical/charmcraftcache-hub/releases/latest",
@@ -149,7 +148,7 @@ def pack(verbose_: Verbose = False):
                     .split(".charmcraftcachehub.")
                 )
                 parent = parent.replace("_", "/")
-                file_path = build_base_cache_subdirectory / parent / name
+                file_path = build_base_subdirectory / parent / name
                 if file_path.exists():
                     logger.debug(f"{name} already downloaded")
                 else:
