@@ -90,7 +90,15 @@ def pack(verbose_: Verbose = False):
         # (Therefore, we should only enable verbose—not disable it)
         state.verbose = True
     logger.info("Resolving dependencies")
-    # todo: check if requirements.txt exists
+    if not pathlib.Path("requirements.txt").exists():
+        if not pathlib.Path("charmcraft.yaml").exists():
+            raise FileNotFoundError(
+                "requirements.txt not found. `cd` into the directory with charmcraft.yaml"
+            )
+        else:
+            raise FileNotFoundError(
+                "requirements.txt not found. Are you using a pack wrapper (e.g. `tox run -e build-dev`)? If so, call charmcraftcache via the wrapper."
+            )
     report_file = cache_directory / "report.json"
     subprocess.run(
         [
