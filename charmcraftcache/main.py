@@ -191,7 +191,7 @@ def pack(verbose: Verbose = False):
         )
         for dependency in report["install"]
     ]
-    # TODO: remove hardcoded path
+    # TODO: remove hardcoded path, test on subordinate with focal + jammy build
     build_base_subdirectory = (
         charmcraft_cache_subdirectory
         / "charmcraft-buildd-base-v5.0/BuilddBaseAlias.JAMMY"
@@ -317,7 +317,6 @@ def clean(verbose: Verbose = False):
 
 
 # todo: add command for adding charm to charmcraftcache-hub
-# todo: add github auth for rate limit? https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-with-a-github-app-on-behalf-of-a-user
 
 
 @app.callback()
