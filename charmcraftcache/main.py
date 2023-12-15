@@ -129,19 +129,19 @@ def exit_for_rate_limit(response: requests.Response):
         retry_time = datetime.datetime.fromtimestamp(
             float(reset), tz=datetime.timezone.utc
         )
-        retry_delta = retry_time - datetime.datetime.now(tz=datetime.timezone.utc)
+        retry_delta = retry_time - datetime.datetime.now(tz=datetime.UTC)
     else:
         if after := response.headers.get("retry-after"):
             retry_delta = datetime.timedelta(seconds=float(after))
         else:
             retry_delta = datetime.timedelta(seconds=60)
-        retry_time = datetime.datetime.now(tz=datetime.timezone.utc) + retry_delta
+        retry_time = datetime.datetime.now(tz=datetime.UTC) + retry_delta
     # Use try/except to chain exception
     try:
         response.raise_for_status()
     except requests.HTTPError:
         raise Exception(
-            f"GitHub API rate limit exceeded. Retry in {retry_delta} at {retry_time}"
+            f"GitHub API rate limit exceeded. Retry in {retry_delta} at {retry_time.astimezone()}"
         )
 
 
