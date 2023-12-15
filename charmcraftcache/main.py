@@ -234,6 +234,8 @@ def pack(verbose: Verbose = False):
             description="\[charmcraftcache] Downloading wheels",
             total=sum(asset.size for asset in assets.values()),
         )
+        # Use temporary path in case download is interrupted
+        temporary_path = cache_directory / "current.whl.part"
         for dependency, asset in assets.items():
             # Download wheel
             response = requests.get(
@@ -245,13 +247,13 @@ def pack(verbose: Verbose = False):
                 stream=True,
             )
             response.raise_for_status()
-            asset.path.parent.mkdir(parents=True, exist_ok=True)
             chunk_size = 1
-            with open(asset.path, "wb") as file:
-                # todo: delete file if stream interrupted?
+            with open(temporary_path, "wb") as file:
                 for chunk in response.iter_content(chunk_size=chunk_size):
                     file.write(chunk)
                     progress.update(task, advance=chunk_size)
+            asset.path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(temporary_path, asset.path)
             logger.debug(f"Downloaded {asset.name}")
         if not assets:
             # Set progress as completed if no wheels downloaded
