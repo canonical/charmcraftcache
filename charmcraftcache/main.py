@@ -117,6 +117,15 @@ def run_charmcraft(command: list[str]):
         raise Exception(e.stderr)
 
 
+def exit_for_rate_limit(response: requests.Response):
+    """Display error & exit if rate limit exceeded"""
+    if response.status_code not in (403, 429):
+        return
+    logger.warning(
+        f'{response.headers["x-ratelimit-remaining"]=} {response.headers["x-ratelimit-reset"]=} {response.headers["retry-after"]=}'
+    )
+
+
 @app.command()
 def pack(verbose: Verbose = False):
     if verbose:
@@ -181,6 +190,7 @@ def pack(verbose: Verbose = False):
         "https://api.github.com/repos/carlcsaposs-canonical/charmcraftcache-hub/releases/latest",
         headers=headers,
     )
+    exit_for_rate_limit(response)
     response.raise_for_status()
     response_data_file = cache_directory / "latest_release.json"
     if response.status_code == 304:
@@ -246,6 +256,7 @@ def pack(verbose: Verbose = False):
                 },
                 stream=True,
             )
+            exit_for_rate_limit(response)
             response.raise_for_status()
             chunk_size = 1
             with open(temporary_path, "wb") as file:
@@ -283,7 +294,7 @@ def clean(verbose: Verbose = False):
 
 
 # todo: add command for adding charm to charmcraftcache-hub
-# todo: add github auth for rate limit?
+# todo: add github auth for rate limit? https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/authenticating-with-a-github-app-on-behalf-of-a-user
 
 
 @app.callback()
