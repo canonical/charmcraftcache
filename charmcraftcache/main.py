@@ -229,7 +229,6 @@ def pack(verbose: Verbose = False):
         logger.warning(
             f'{missing_wheels} cached wheel{"s" if missing_wheels > 1 else ""} not found.'
         )
-    # todo: disable auto refresh?
     with rich.progress.Progress(console=console) as progress:
         task = progress.add_task(
             description="\[charmcraftcache] Downloading wheels",
@@ -249,10 +248,13 @@ def pack(verbose: Verbose = False):
             asset.path.parent.mkdir(parents=True, exist_ok=True)
             chunk_size = 1
             with open(asset.path, "wb") as file:
+                # todo: delete file if stream interrupted?
                 for chunk in response.iter_content(chunk_size=chunk_size):
                     file.write(chunk)
                     progress.update(task, advance=chunk_size)
             logger.debug(f"Downloaded {asset.name}")
+        # Set progress as completed if no wheels downloaded
+        progress.update(task, completed=True)
     logger.info("Packing charm")
     run_charmcraft(["pack"])
 
