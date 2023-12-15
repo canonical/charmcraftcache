@@ -123,20 +123,27 @@ def exit_for_rate_limit(response: requests.Response):
     if response.status_code not in (403, 429):
         return
     # https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#exceeding-the-rate-limit
-    if int(response.headers.get("x-ratelimit-remaining")) == 0 and (reset := response.headers.get("x-ratelimit-reset")):
-        retry_time = datetime.datetime.fromtimestamp(float(reset), tz=datetime.timezone.utc)
-        retry_delta = retry_time - datetime.datetime.now()
+    if int(response.headers.get("x-ratelimit-remaining")) == 0 and (
+        reset := response.headers.get("x-ratelimit-reset")
+    ):
+        retry_time = datetime.datetime.fromtimestamp(
+            float(reset), tz=datetime.timezone.utc
+        )
+        retry_delta = retry_time - datetime.datetime.now(tz=datetime.timezone.utc)
     else:
         if after := response.headers.get("retry-after"):
             retry_delta = datetime.timedelta(seconds=float(after))
         else:
             retry_delta = datetime.timedelta(seconds=60)
-        retry_time = datetime.datetime.now() + retry_delta
+        retry_time = datetime.datetime.now(tz=datetime.timezone.utc) + retry_delta
     # Use try/except to chain exception
     try:
         response.raise_for_status()
     except requests.HTTPError:
-        raise Exception(f"GitHub API rate limit exceeded. Retry in {retry_delta} at {retry_time}")
+        raise Exception(
+            f"GitHub API rate limit exceeded. Retry in {retry_delta} at {retry_time}"
+        )
+
 
 @app.command()
 def pack(verbose: Verbose = False):
