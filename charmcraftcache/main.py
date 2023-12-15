@@ -121,8 +121,9 @@ def exit_for_rate_limit(response: requests.Response):
     """Display error & exit if rate limit exceeded"""
     if response.status_code not in (403, 429):
         return
+    logger.warning(f"{response.headers}")
     logger.warning(
-        f'{response.headers["x-ratelimit-remaining"]=} {response.headers["x-ratelimit-reset"]=} {response.headers["retry-after"]=}'
+        f'{response.headers.get("x-ratelimit-remaining")=} {response.headers.get("x-ratelimit-reset")=} {response.headers.get("retry-after")=}'
     )
 
 
