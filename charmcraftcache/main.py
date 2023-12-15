@@ -253,8 +253,9 @@ def pack(verbose: Verbose = False):
                     file.write(chunk)
                     progress.update(task, advance=chunk_size)
             logger.debug(f"Downloaded {asset.name}")
-        # Set progress as completed if no wheels downloaded
-        progress.update(task, completed=True)
+        if not assets:
+            # Set progress as completed if no wheels downloaded
+            progress.update(task, completed=1, total=1)
     logger.info("Packing charm")
     run_charmcraft(["pack"])
 
