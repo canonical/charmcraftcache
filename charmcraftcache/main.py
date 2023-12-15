@@ -177,6 +177,7 @@ def pack(verbose: Verbose = False):
     # Example: v1
     hub_version = release_name.split("-")[-1]
     clean_cache_if_version_changed(VersionType.CHARMCRAFTCACHE_HUB, hub_version)
+    missing_wheels = 0
     for dependency in rich.progress.track(
         dependencies,
         description="\[charmcraftcache] Downloading wheels",
@@ -215,10 +216,15 @@ def pack(verbose: Verbose = False):
                     logger.debug(f"Downloaded {name}")
                 break
         else:
-            # TODO: improve message
-            logger.warning(
+            missing_wheels += 1
+            logger.debug(
                 f"No cached wheel found for {dependency_name} {dependency_version}"
             )
+    if missing_wheels:
+        # TODO: improve message
+        logger.warning(
+            f'{missing_wheels} cached wheel{"s" if missing_wheels > 1 else ""} not found.'
+        )
     logger.info("Packing charm")
     run_charmcraft(["pack"])
 
