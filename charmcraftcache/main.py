@@ -231,7 +231,7 @@ def pack(verbose: Verbose = False):
         )
     # todo: disable auto refresh?
     with rich.progress.Progress(console=console) as progress:
-        progress.add_task(
+        task = progress.add_task(
             description="\[charmcraftcache] Downloading wheels",
             total=sum(asset.size for asset in assets.values()),
         )
@@ -247,13 +247,11 @@ def pack(verbose: Verbose = False):
             )
             response.raise_for_status()
             asset.path.parent.mkdir(parents=True, exist_ok=True)
-            logger.debug(f"FOO: {asset.size=}")
-            counter = 0
+            chunk_size = 1
             with open(asset.path, "wb") as file:
-                for chunk in response.iter_content():
+                for chunk in response.iter_content(chunk_size=chunk_size):
                     file.write(chunk)
-                    counter += 1
-            logger.debug(f"FOO2: {counter=}")
+                    progress.update(task, advance=chunk_size)
             logger.debug(f"Downloaded {asset.name}")
     logger.info("Packing charm")
     run_charmcraft(["pack"])
