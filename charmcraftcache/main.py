@@ -29,7 +29,26 @@ handler = rich.logging.RichHandler(
     show_level=False,
     show_path=False,
     highlighter=rich.highlighter.NullHighlighter(),
+    markup=True,
 )
+
+
+class WarningFormatter(logging.Formatter):
+    """Only show log level if level >= logging.WARNING or verbose enabled"""
+
+    def format(self, record):
+        if record.levelno >= logging.WARNING or state.verbose:
+            level = handler.get_level_text(record)
+            # Rich adds padding to level—remove it
+            level.rstrip()
+            replacement = f"{level.markup} "
+        else:
+            replacement = ""
+        old_format = self._style._fmt
+        self._style._fmt = old_format.replace("{levelname} ", replacement)
+        result = super().format(record)
+        self._style._fmt = old_format
+        return result
 
 
 class State:
@@ -43,7 +62,7 @@ class State:
     @verbose.setter
     def verbose(self, value: bool):
         self._verbose = value
-        log_format = "[charmcraftcache] {message}"
+        log_format = "\[charmcraftcache] {levelname} {message}"
         if value:
             log_format = "{asctime} " + log_format
             logger.setLevel(logging.DEBUG)
@@ -51,7 +70,7 @@ class State:
             logger.setLevel(logging.INFO)
         logger.removeHandler(handler)
         handler.setFormatter(
-            logging.Formatter(log_format, datefmt="%Y-%m-%d %H:%M:%S", style="{")
+            WarningFormatter(log_format, datefmt="%Y-%m-%d %H:%M:%S", style="{")
         )
         logger.addHandler(handler)
 
