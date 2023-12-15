@@ -103,8 +103,8 @@ def run_charmcraft(command: list[str]):
 
 
 @app.command()
-def pack(verbose_: Verbose = False):
-    if verbose_:
+def pack(verbose: Verbose = False):
+    if verbose:
         # Verbose can be globally enabled from command level or app level
         # (Therefore, we should only enable verbose—not disable it)
         state.verbose = True
@@ -233,7 +233,11 @@ def clean_cache():
 
 
 @app.command()
-def clean():
+def clean(verbose: Verbose = False):
+    if verbose:
+        # Verbose can be globally enabled from app level or command level
+        # (Therefore, we should only enable verbose—not disable it)
+        state.verbose = True
     clean_cache()
     logger.info("Running `charmcraft clean`")
     run_charmcraft(["clean"])
