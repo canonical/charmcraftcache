@@ -136,6 +136,8 @@ def exit_for_rate_limit(response: requests.Response):
         else:
             retry_delta = datetime.timedelta(seconds=60)
         retry_time = datetime.datetime.now(tz=datetime.timezone.utc) + retry_delta
+    # Round delta
+    retry_delta = datetime.timedelta(seconds=round(retry_delta.total_seconds()))
     # Use try/except to chain exception
     try:
         response.raise_for_status()
