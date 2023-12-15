@@ -1,3 +1,4 @@
+import dataclasses
 import enum
 import importlib.metadata
 import json
@@ -75,6 +76,20 @@ class State:
         logger.addHandler(handler)
 
 
+@dataclasses.dataclass(frozen=True, kw_only=True)
+class Dependency:
+    name: str
+    version: str
+
+
+@dataclasses.dataclass(frozen=True, kw_only=True)
+class Asset:
+    path: pathlib.Path
+    id: int
+    name: str
+    size: int
+
+
 def run_charmcraft(command: list[str]):
     try:
         version = json.loads(
@@ -137,7 +152,13 @@ def pack(verbose: Verbose = False):
     )
     with open(report_file, "r") as file:
         report = json.load(file)
-    dependencies = report["install"]
+    dependencies = [
+        Dependency(
+            name=dependency["metadata"]["name"],
+            version=dependency["metadata"]["version"],
+        )
+        for dependency in report["install"]
+    ]
     # TODO: remove hardcoded path
     build_base_subdirectory = (
         charmcraft_cache_subdirectory
@@ -178,16 +199,11 @@ def pack(verbose: Verbose = False):
     hub_version = release_name.split("-")[-1]
     clean_cache_if_version_changed(VersionType.CHARMCRAFTCACHE_HUB, hub_version)
     missing_wheels = 0
-    for dependency in rich.progress.track(
-        dependencies,
-        description="\[charmcraftcache] Downloading wheels",
-        console=console,
-    ):
-        dependency_name = dependency["metadata"]["name"]
-        dependency_version = dependency["metadata"]["version"]
+    assets = {}
+    for dependency in dependencies:
         for asset in response_data["assets"]:
             if asset["name"].startswith(
-                f'{dependency_name.replace("-", "_")}-{dependency_version}-'
+                f'{dependency.name.replace("-", "_")}-{dependency.version}-'
             ):
                 name, parent = (
                     asset["name"]
@@ -199,32 +215,46 @@ def pack(verbose: Verbose = False):
                 if file_path.exists():
                     logger.debug(f"{name} already downloaded")
                 else:
-                    # Download wheel
-                    response = requests.get(
-                        f'https://api.github.com/repos/carlcsaposs-canonical/charmcraftcache-hub/releases/assets/{asset["id"]}',
-                        headers={
-                            "Accept": "application/octet-stream",
-                            "X-GitHub-Api-Version": "2022-11-28",
-                        },
-                        stream=True,
+                    assets[dependency] = Asset(
+                        path=file_path, id=asset["id"], name=name, size=asset["size"]
                     )
-                    response.raise_for_status()
-                    file_path.parent.mkdir(parents=True, exist_ok=True)
-                    with open(file_path, "wb") as file:
-                        for chunk in response.iter_content():
-                            file.write(chunk)
-                    logger.debug(f"Downloaded {name}")
                 break
         else:
             missing_wheels += 1
             logger.debug(
-                f"No cached wheel found for {dependency_name} {dependency_version}"
+                f"No cached wheel found for {dependency.name} {dependency.version}"
             )
     if missing_wheels:
         # TODO: improve message
         logger.warning(
             f'{missing_wheels} cached wheel{"s" if missing_wheels > 1 else ""} not found.'
         )
+    # todo: disable auto refresh?
+    with rich.progress.Progress(console=console) as progress:
+        progress.add_task(
+            description="\[charmcraftcache] Downloading wheels",
+            total=sum(asset.size for asset in assets.values()),
+        )
+        for dependency, asset in assets.items():
+            # Download wheel
+            response = requests.get(
+                f"https://api.github.com/repos/carlcsaposs-canonical/charmcraftcache-hub/releases/assets/{asset.id}",
+                headers={
+                    "Accept": "application/octet-stream",
+                    "X-GitHub-Api-Version": "2022-11-28",
+                },
+                stream=True,
+            )
+            response.raise_for_status()
+            asset.path.parent.mkdir(parents=True, exist_ok=True)
+            logger.debug(f"FOO: {asset.size=}")
+            counter = 0
+            with open(asset.path, "wb") as file:
+                for chunk in response.iter_content():
+                    file.write(chunk)
+                    counter += 1
+            logger.debug(f"FOO2: {counter=}")
+            logger.debug(f"Downloaded {asset.name}")
     logger.info("Packing charm")
     run_charmcraft(["pack"])
 
