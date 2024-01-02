@@ -86,7 +86,7 @@ class Dependency:
 @dataclasses.dataclass(frozen=True, kw_only=True)
 class Asset:
     path: pathlib.Path
-    id: int
+    download_url: str
     name: str
     size: int
 
@@ -249,7 +249,10 @@ def pack(verbose: Verbose = False):
                     logger.debug(f"{name} already downloaded")
                 else:
                     assets[dependency] = Asset(
-                        path=file_path, id=asset["id"], name=name, size=asset["size"]
+                        path=file_path,
+                        download_url=asset["browser_download_url"],
+                        name=name,
+                        size=asset["size"],
                     )
                 break
         else:
@@ -271,14 +274,7 @@ def pack(verbose: Verbose = False):
         temporary_path = cache_directory / "current.whl.part"
         for dependency, asset in assets.items():
             # Download wheel
-            response = requests.get(
-                f"https://api.github.com/repos/carlcsaposs-canonical/charmcraftcache-hub/releases/assets/{asset.id}",
-                headers={
-                    "Accept": "application/octet-stream",
-                    "X-GitHub-Api-Version": "2022-11-28",
-                },
-                stream=True,
-            )
+            response = requests.get(asset.download_url, stream=True)
             exit_for_rate_limit(response)
             response.raise_for_status()
             chunk_size = 1
