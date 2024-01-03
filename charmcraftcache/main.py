@@ -20,7 +20,7 @@ import rich.progress
 import typer
 import typing_extensions
 
-app = typer.Typer()
+app = typer.Typer(help="Fast first-time builds for charmcraft")
 Verbose = typing_extensions.Annotated[bool, typer.Option("--verbose", "-v")]
 console = rich.console.Console(highlight=False)
 logger = logging.getLogger(__name__)
