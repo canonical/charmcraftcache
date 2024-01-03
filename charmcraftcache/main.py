@@ -366,9 +366,12 @@ def add(verbose: Verbose = False):
         remote_branch, repo_name = result
         issue_url += f"&repo={repo_name}&ref={remote_branch}"
     logger.info(
-        f"To add your charm, open an issue here:\n\n[link={issue_url}]{issue_url}[/link]\n"
+        f"To add your charm, open an issue here:\n\n[link={issue_url}]{issue_url}[/link]\n\n"
     )
     typer.launch(issue_url)
+    logger.info(
+        "After the issue is opened, it will be automatically processed. Then, it will take a few minutes to build the wheels."
+    )
 
 
 @app.callback()
