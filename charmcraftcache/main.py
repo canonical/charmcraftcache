@@ -19,6 +19,7 @@ import rich.logging
 import rich.progress
 import typer
 import typing_extensions
+import yaml
 
 app = typer.Typer(help="Fast first-time builds for charmcraft")
 Verbose = typing_extensions.Annotated[bool, typer.Option("--verbose", "-v")]
@@ -81,6 +82,7 @@ class State:
 class Dependency:
     name: str
     version: str
+    series: str
 
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
@@ -149,6 +151,18 @@ def exit_for_rate_limit(response: requests.Response):
         )
 
 
+def get_charmcraft_yaml_bases(charmcraft_yaml: pathlib.Path) -> list[str]:
+    """Get bases from charmcraft.yaml
+
+    e.g. ["20.04", "22.04"]
+    """
+    bases = yaml.safe_load(charmcraft_yaml.read_text())["bases"]
+    # Handle multiple bases formats
+    # See https://discourse.charmhub.io/t/charmcraft-bases-provider-support/4713
+    versions = [base_.get("build-on", [base_])[0]["channel"] for base_ in bases]
+    return versions
+
+
 @app.command()
 def pack(verbose: Verbose = False):
     """Download pre-built wheels & `charmcraft pack`"""
@@ -185,19 +199,17 @@ def pack(verbose: Verbose = False):
     )
     with open(report_file, "r") as file:
         report = json.load(file)
-    dependencies = [
-        Dependency(
-            name=dependency["metadata"]["name"],
-            version=dependency["metadata"]["version"],
-        )
-        for dependency in report["install"]
-    ]
-    # TODO: remove hardcoded path, test on subordinate with focal + jammy build
-    build_base_subdirectory = (
-        charmcraft_cache_subdirectory
-        / "charmcraft-buildd-base-v5.0/BuilddBaseAlias.JAMMY"
-    )
-    build_base_subdirectory.mkdir(parents=True, exist_ok=True)
+    dependencies = []
+    bases = get_charmcraft_yaml_bases(pathlib.Path("charmcraft.yaml"))
+    for dependency in report["install"]:
+        for base in bases:
+            dependencies.append(
+                Dependency(
+                    name=dependency["metadata"]["name"],
+                    version=dependency["metadata"]["version"],
+                    series=SERIES[base],
+                )
+            )
     logger.debug("Getting latest charmcraftcache-hub release via GitHub API")
     headers = {
         "Accept": "application/vnd.github+json",
@@ -234,6 +246,12 @@ def pack(verbose: Verbose = False):
     clean_cache_if_version_changed(VersionType.CHARMCRAFTCACHE_HUB, hub_version)
     missing_wheels = 0
     assets = {}
+    # TODO: remove hardcoded path
+    build_base_subdirectory = (
+        charmcraft_cache_subdirectory / "charmcraft-buildd-base-v5.0"
+    )
+    build_base_subdirectory.mkdir(parents=True, exist_ok=True)
+    logger.debug(f'Selecting wheels for Ubuntu versions: {", ".join(bases)}')
     for dependency in dependencies:
         for asset in response_data["assets"]:
             if asset["name"].startswith(
@@ -244,10 +262,17 @@ def pack(verbose: Verbose = False):
                     .removesuffix(".charmcraftcachehub")
                     .split(".charmcraftcachehub.")
                 )
-                parent = parent.replace("_", "/")
-                file_path = build_base_subdirectory / parent / name
+                series, *parent = parent.split("_")
+                file_path = (
+                    build_base_subdirectory
+                    / f"BuilddBaseAlias.{series.upper()}"
+                    / "/".join(parent)
+                    / name
+                )
+                if series != dependency.series:
+                    continue
                 if file_path.exists():
-                    logger.debug(f"{name} already downloaded")
+                    logger.debug(f"{name} already downloaded for {dependency.series}")
                 else:
                     assets[dependency] = Asset(
                         path=file_path,
@@ -259,7 +284,7 @@ def pack(verbose: Verbose = False):
         else:
             missing_wheels += 1
             logger.debug(
-                f"No pre-built wheel found for {dependency.name} {dependency.version}"
+                f"No pre-built wheel found for {dependency.name} {dependency.version} {dependency.series}"
             )
     if missing_wheels:
         logger.warning(
@@ -284,7 +309,7 @@ def pack(verbose: Verbose = False):
                     progress.update(task, advance=chunk_size)
             asset.path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(temporary_path, asset.path)
-            logger.debug(f"Downloaded {asset.name}")
+            logger.debug(f"Downloaded {asset.name} for {dependency.series}")
         if not assets:
             # Set progress as completed if no wheels downloaded
             progress.update(task, completed=1, total=1)
@@ -407,6 +432,7 @@ def clean_cache_if_version_changed(version_type: VersionType, current_version: s
         file.write_text(current_version)
 
 
+SERIES = {"20.04": "focal", "22.04": "jammy"}
 state = State()
 cache_directory = pathlib.Path("~/.cache/charmcraftcache/").expanduser()
 cache_directory.mkdir(parents=True, exist_ok=True)
