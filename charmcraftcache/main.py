@@ -262,9 +262,8 @@ def pack(verbose: Verbose = False):
                 f"No cached wheel found for {dependency.name} {dependency.version}"
             )
     if missing_wheels:
-        # TODO: improve message
         logger.warning(
-            f'{missing_wheels} cached wheel{"s" if missing_wheels > 1 else ""} not found.'
+            f'{missing_wheels} cached wheel{"s" if missing_wheels > 1 else ""} not found. Run `ccc add` for faster builds.'
         )
     with rich.progress.Progress(console=console) as progress:
         task = progress.add_task(
