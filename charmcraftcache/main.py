@@ -319,7 +319,6 @@ def get_remote_branch_and_url() -> tuple[str, str] | None:
     try:
         local_branch = subprocess.run(
             ["git", "symbolic-ref", "--quiet", "HEAD"],
-            check=True,
             capture_output=True,
             encoding="utf-8",
         ).stdout.rstrip()
