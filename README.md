@@ -6,7 +6,7 @@ Fast first-time builds for [charmcraft](https://github.com/canonical/charmcraft)
 ## Installation
 Install `pipx`: https://pipx.pypa.io/latest/installation/
 ```
-pipx install git+https://github.com/carlcsaposs-canonical/charmcraftcache
+pipx install charmcraftcache
 ```
 
 ## Usage
