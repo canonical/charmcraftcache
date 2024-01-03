@@ -367,7 +367,10 @@ def add(verbose: Verbose = False):
     if result:
         remote_branch, repo_name = result
         issue_url += f"&repo={repo_name}&ref={remote_branch}"
-    logger.info(f"To add your charm, open an issue here:\n\n{issue_url}\n\n")
+    logger.info(
+        f"To add your charm, open an issue here:\n\n[link={issue_url}]{issue_url}[/link]\n"
+    )
+    typer.launch(issue_url)
 
 
 @app.callback()
