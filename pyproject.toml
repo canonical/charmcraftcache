@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "charmcraftcache"
-version = "0.2.0"
+version = "0.2.1"
 description = "Fast first-time builds for charmcraft"
 authors = ["Carl Csaposs <carl.csaposs@canonical.com>"]
 readme = "README.md"

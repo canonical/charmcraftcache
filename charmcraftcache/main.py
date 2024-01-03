@@ -385,7 +385,7 @@ def add(verbose: Verbose = False):
         # Verbose can be globally enabled from app level or command level
         # (Therefore, we should only enable verbose—not disable it)
         state.verbose = True
-    issue_url = "https://github.com/carlcsaposs-canonical/charmcraftcache-hub/issues/new?template=add_charm_branch.yaml&title=Add+charm+branch"
+    issue_url = "https://github.com/carlcsaposs-canonical/charmcraftcache-hub/issues/new?template=add_charm_branch.yaml&labels=add-charm&title=Add+charm+branch"
     result = get_remote_branch_and_url()
     if result:
         remote_branch, repo_name = result
