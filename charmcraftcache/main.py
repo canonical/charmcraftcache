@@ -263,7 +263,7 @@ def pack(verbose: Verbose = False):
             )
     if missing_wheels:
         logger.warning(
-            f'{missing_wheels} cached wheel{"s" if missing_wheels > 1 else ""} not found. Run `ccc add` for faster builds.'
+            f'{missing_wheels} wheel{"s" if missing_wheels > 1 else ""} not pre-built. Run `ccc add` for faster builds.'
         )
     with rich.progress.Progress(console=console) as progress:
         task = progress.add_task(
