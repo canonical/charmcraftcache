@@ -151,6 +151,7 @@ def exit_for_rate_limit(response: requests.Response):
 
 @app.command()
 def pack(verbose: Verbose = False):
+    """Download pre-built wheels & `charmcraft pack`"""
     if verbose:
         # Verbose can be globally enabled from command level or app level
         # (Therefore, we should only enable verbose—not disable it)
@@ -303,6 +304,7 @@ def clean_cache():
 
 @app.command()
 def clean(verbose: Verbose = False):
+    """Delete cached wheels & `charmcraft clean`"""
     if verbose:
         # Verbose can be globally enabled from app level or command level
         # (Therefore, we should only enable verbose—not disable it)
@@ -312,7 +314,60 @@ def clean(verbose: Verbose = False):
     run_charmcraft(["clean"])
 
 
-# todo: add command for adding charm to charmcraftcache-hub
+def get_remote_branch_and_url() -> tuple[str, str] | None:
+    """Get remote branch name & GitHub repository name for current branch"""
+    try:
+        local_branch = subprocess.run(
+            ["git", "symbolic-ref", "--quiet", "HEAD"],
+            check=True,
+            capture_output=True,
+            encoding="utf-8",
+        ).stdout.rstrip()
+    except FileNotFoundError:
+        logger.debug("git not installed")
+        return
+    if not local_branch:
+        return
+    output = subprocess.run(
+        ["git", "for-each-ref", "--format", "%(upstream:short)", local_branch],
+        check=True,
+        capture_output=True,
+        encoding="utf-8",
+    ).stdout.rstrip()
+    if not output:
+        return
+    remote_name, *remote_branch = output.split("/")
+    remote_branch = "/".join(remote_branch)
+    remote_url = subprocess.run(
+        ["git", "remote", "get-url", remote_name],
+        check=True,
+        capture_output=True,
+        encoding="utf-8",
+    ).stdout.rstrip()
+    remote_url = remote_url.removesuffix(".git")
+    for prefix in ("git@github.com:", "https://github.com/"):
+        if remote_url.startswith(prefix):
+            repo_name = remote_url.removeprefix(prefix)
+            return remote_branch, repo_name
+
+
+@app.command()
+def add(verbose: Verbose = False):
+    """Pre-build wheels for your charm
+
+    charmcraftcache uses a repository of pre-built wheels generated from a list of charms. For the
+    best performance, add your charm to the list.
+    """
+    if verbose:
+        # Verbose can be globally enabled from app level or command level
+        # (Therefore, we should only enable verbose—not disable it)
+        state.verbose = True
+    issue_url = "https://github.com/carlcsaposs-canonical/charmcraftcache-hub/issues/new?template=add_charm_branch.yaml&title=Add+charm+branch"
+    result = get_remote_branch_and_url()
+    if result:
+        remote_branch, repo_name = result
+        issue_url += f"&repo={repo_name}&ref={remote_branch}"
+    logger.info(f"To add your charm, open an issue here:\n\n{issue_url}\n\n")
 
 
 @app.callback()
