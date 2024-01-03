@@ -15,6 +15,8 @@ ccc add
 ccc pack
 ```
 
+For best results, add `charm-strict-dependencies: true` to your charmcraft.yaml.
+
 ## How it works
 ### Why are charmcraft builds slow?
 Instead of downloading wheels from PyPI (which pip does by default), charmcraft builds Python package wheels from source (i.e. with pip install [--no-binary](https://pip.pypa.io/en/stable/cli/pip_install/#cmdoption-no-binary)).
