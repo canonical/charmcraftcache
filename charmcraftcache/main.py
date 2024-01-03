@@ -259,7 +259,7 @@ def pack(verbose: Verbose = False):
         else:
             missing_wheels += 1
             logger.debug(
-                f"No cached wheel found for {dependency.name} {dependency.version}"
+                f"No pre-built wheel found for {dependency.name} {dependency.version}"
             )
     if missing_wheels:
         logger.warning(
