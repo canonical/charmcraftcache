@@ -23,7 +23,13 @@ import yaml
 
 app = typer.Typer(help="Fast first-time builds for charmcraft")
 Verbose = typing_extensions.Annotated[bool, typer.Option("--verbose", "-v")]
-console = rich.console.Console(highlight=False)
+if os.environ.get("CI") == "true":
+    # Show colors in CI (https://rich.readthedocs.io/en/stable/console.html#terminal-detection)
+    console = rich.console.Console(
+        highlight=False, force_terminal=True, force_interactive=False
+    )
+else:
+    console = rich.console.Console(highlight=False)
 logger = logging.getLogger(__name__)
 handler = rich.logging.RichHandler(
     console=console,
