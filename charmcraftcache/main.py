@@ -163,13 +163,22 @@ def get_charmcraft_yaml_bases(charmcraft_yaml: pathlib.Path) -> list[str]:
     return versions
 
 
-@app.command()
-def pack(verbose: Verbose = False):
-    """Download pre-built wheels & `charmcraft pack`"""
+@app.command(
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True}
+)
+def pack(context: typer.Context, verbose: Verbose = False):
+    """Download pre-built wheels & `charmcraft pack`
+
+    Unrecognized command arguments are passed to `charmcraft pack`
+    """
     if verbose:
         # Verbose can be globally enabled from command level or app level
         # (Therefore, we should only enable verbose—not disable it)
         state.verbose = True
+    if context.args:
+        logger.info(
+            f'Passing unrecognized arguments to `charmcraft pack`: {" ".join(context.args)}'
+        )
     logger.info("Resolving dependencies")
     if not pathlib.Path("requirements.txt").exists():
         if not pathlib.Path("charmcraft.yaml").exists():
@@ -314,7 +323,7 @@ def pack(verbose: Verbose = False):
             # Set progress as completed if no wheels downloaded
             progress.update(task, completed=1, total=1)
     logger.info("Packing charm")
-    run_charmcraft(["pack"])
+    run_charmcraft(["pack", *context.args])
 
 
 def clean_cache():
