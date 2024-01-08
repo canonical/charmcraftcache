@@ -62,6 +62,7 @@ class WarningFormatter(logging.Formatter):
 
 class State:
     def __init__(self):
+        self._verbose = None
         self.verbose = False
 
     @property
@@ -70,6 +71,8 @@ class State:
 
     @verbose.setter
     def verbose(self, value: bool):
+        if value == self._verbose:
+            return
         self._verbose = value
         log_format = "\[charmcraftcache] {levelname} {message}"
         if value:
@@ -82,6 +85,7 @@ class State:
             WarningFormatter(log_format, datefmt="%Y-%m-%d %H:%M:%S", style="{")
         )
         logger.addHandler(handler)
+        logger.debug(f"Version: {installed_version}")
 
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
@@ -450,11 +454,11 @@ def clean_cache_if_version_changed(version_type: VersionType, current_version: s
 
 
 SERIES = {"20.04": "focal", "22.04": "jammy"}
+installed_version = importlib.metadata.version("charmcraftcache")
 state = State()
 cache_directory = pathlib.Path("~/.cache/charmcraftcache/").expanduser()
 cache_directory.mkdir(parents=True, exist_ok=True)
 charmcraft_cache_subdirectory = cache_directory / "charmcraft"
-installed_version = importlib.metadata.version("charmcraftcache")
 clean_cache_if_version_changed(VersionType.CHARMCRAFTCACHE, installed_version)
 response_ = requests.get("https://pypi.org/pypi/charmcraftcache/json")
 response_.raise_for_status()
