@@ -454,6 +454,12 @@ state = State()
 cache_directory = pathlib.Path("~/.cache/charmcraftcache/").expanduser()
 cache_directory.mkdir(parents=True, exist_ok=True)
 charmcraft_cache_subdirectory = cache_directory / "charmcraft"
-clean_cache_if_version_changed(
-    VersionType.CHARMCRAFTCACHE, importlib.metadata.version("charmcraftcache")
-)
+installed_version = importlib.metadata.version("charmcraftcache")
+clean_cache_if_version_changed(VersionType.CHARMCRAFTCACHE, installed_version)
+response = requests.get("https://pypi.org/pypi/charmcraftcache/json")
+response.raise_for_status()
+latest_pypi_version = response.json()["info"]["version"]
+if installed_version != latest_pypi_version:
+    logger.info(
+        f"Update available. Run `pipx upgrade charmcraftcache` ({installed_version} -> {latest_pypi_version})"
+    )
