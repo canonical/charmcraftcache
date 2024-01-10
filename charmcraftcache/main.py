@@ -221,12 +221,25 @@ def pack(context: typer.Context, verbose: Verbose = False):
     with open(report_file, "r") as file:
         report = json.load(file)
     dependencies = []
-    bases = get_charmcraft_yaml_bases(pathlib.Path("charmcraft.yaml"))
+    charmcraft_yaml = pathlib.Path("charmcraft.yaml")
+    bases = get_charmcraft_yaml_bases(charmcraft_yaml)
+    binary_packages: list[str] = (
+        yaml.safe_load(charmcraft_yaml.read_text())
+        .get("parts", {})
+        .get("charm", {})
+        .get("charm-binary-python-packages", [])
+    )
     for dependency in report["install"]:
+        name = dependency["metadata"]["name"]
+        if name in binary_packages:
+            logger.debug(
+                f"{name} in charm-binary-python-packages. Skipping wheel download"
+            )
+            continue
         for base in bases:
             dependencies.append(
                 Dependency(
-                    name=dependency["metadata"]["name"],
+                    name=name,
                     version=dependency["metadata"]["version"],
                     series=SERIES[base],
                 )
