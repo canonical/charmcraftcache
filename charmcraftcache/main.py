@@ -126,10 +126,11 @@ def run_charmcraft(command: list[str]):
         command.append("-v")
     try:
         subprocess.run(["charmcraft", *command], check=True, env=env)
-    except subprocess.CalledProcessError:
+    except subprocess.CalledProcessError as exception:
         # `charmcraft` stderr will be shown in terminal, no need to raise exception—just log
         # traceback.
         logger.exception("charmcraft command failed:")
+        exit(exception.returncode)
 
 
 def exit_for_rate_limit(response: requests.Response):
