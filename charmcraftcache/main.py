@@ -160,7 +160,7 @@ def exit_for_rate_limit(response: requests.Response):
         raise Exception(
             f"GitHub API rate limit exceeded. Retry in {retry_delta} at {retry_time.astimezone()}. "
             "Seeing this often? Please add a comment to this issue: "
-            "https://github.com/carlcsaposs-canonical/charmcraftcache/issues/1"
+            "https://github.com/canonical/charmcraftcache/issues/1"
         )
 
 
