@@ -30,7 +30,7 @@ However, charmcraft builds are still slow the first time the wheel is built. Thi
 
 `charmcraftcache` solves the slow first build.
 
-[charmcraftcache-hub](https://github.com/carlcsaposs-canonical/charmcraftcache-hub) maintains a [list of charms](https://github.com/carlcsaposs-canonical/charmcraftcache-hub/blob/main/charms.json). For each charm, every Python dependency is built from source & uploaded to a GitHub release.
+[charmcraftcache-hub](https://github.com/canonical/charmcraftcache-hub) maintains a [list of charms](https://github.com/canonical/charmcraftcache-hub/blob/main/charms.json). For each charm, every Python dependency is built from source & uploaded to a GitHub release.
 
 `ccc pack` downloads these pre-built wheels to charmcraft's pip cache (and then runs `charmcraft pack`).
 
