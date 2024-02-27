@@ -1,4 +1,6 @@
 # charmcraftcache
+[![Publish](https://github.com/canonical/charmcraftcache/actions/workflows/publish.yaml/badge.svg)](https://github.com/canonical/charmcraftcache/actions/workflows/publish.yaml)
+
 _Reinventing the wheel_
 
 Fast first-time builds for [charmcraft](https://github.com/canonical/charmcraft)—on a local machine or CI
