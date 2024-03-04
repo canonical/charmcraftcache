@@ -6,6 +6,7 @@ import json
 import logging
 import os
 import pathlib
+import platform
 import shutil
 import subprocess
 import sys
@@ -93,6 +94,7 @@ class Dependency:
     name: str
     version: str
     series: str
+    architecture: str
 
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
@@ -164,15 +166,28 @@ def exit_for_rate_limit(response: requests.Response):
         )
 
 
-def get_charmcraft_yaml_bases(charmcraft_yaml: pathlib.Path) -> list[str]:
+def get_charmcraft_yaml_bases(
+    *, charmcraft_yaml: pathlib.Path, architecture: str
+) -> list[str]:
     """Get bases from charmcraft.yaml
 
     e.g. ["20.04", "22.04"]
     """
     bases = yaml.safe_load(charmcraft_yaml.read_text())["bases"]
-    # Handle multiple bases formats
-    # See https://discourse.charmhub.io/t/charmcraft-bases-provider-support/4713
-    versions = [base_.get("build-on", [base_])[0]["channel"] for base_ in bases]
+    versions = []
+    for base in bases:
+        # Handle multiple bases formats
+        # See https://discourse.charmhub.io/t/charmcraft-bases-provider-support/4713
+        build_on = base.get("build-on")
+        if build_on:
+            assert isinstance(build_on, list) and len(build_on) == 1
+            base = build_on[0]
+        build_on_architectures = base.get("architectures", ["amd64"])
+        assert (
+            len(build_on_architectures) == 1
+        ), f"Multiple architectures ({build_on_architectures}) in one (charmcraft.yaml) base not supported. Use one base per architecture"
+        if build_on_architectures[0] == CHARMCRAFT_ARCHITECTURES[architecture]:
+            versions.append(base["channel"])
     return versions
 
 
@@ -223,7 +238,10 @@ def pack(context: typer.Context, verbose: Verbose = False):
         report = json.load(file)
     dependencies = []
     charmcraft_yaml = pathlib.Path("charmcraft.yaml")
-    bases = get_charmcraft_yaml_bases(charmcraft_yaml)
+    architecture = platform.machine()
+    bases = get_charmcraft_yaml_bases(
+        charmcraft_yaml=charmcraft_yaml, architecture=architecture
+    )
     binary_packages: list[str] = (
         yaml.safe_load(charmcraft_yaml.read_text())
         .get("parts", {})
@@ -243,6 +261,7 @@ def pack(context: typer.Context, verbose: Verbose = False):
                     name=name,
                     version=dependency["metadata"]["version"],
                     series=SERIES[base],
+                    architecture=architecture,
                 )
             )
     logger.debug("Getting latest charmcraftcache-hub release via GitHub API")
@@ -286,18 +305,18 @@ def pack(context: typer.Context, verbose: Verbose = False):
         charmcraft_cache_subdirectory / "charmcraft-buildd-base-v5.0"
     )
     build_base_subdirectory.mkdir(parents=True, exist_ok=True)
-    logger.debug(f'Selecting wheels for Ubuntu versions: {", ".join(bases)}')
+    logger.debug(
+        f'Selecting wheels for Ubuntu versions ({architecture}): {", ".join(bases)}'
+    )
     for dependency in dependencies:
         for asset in response_data["assets"]:
             if asset["name"].startswith(
                 f'{dependency.name.replace("-", "_")}-{dependency.version}-'
             ):
-                name, parent = (
-                    asset["name"]
-                    .removesuffix(".charmcraftcachehub")
-                    .split(".charmcraftcachehub.")
-                )
-                series, *parent = parent.split("_")
+                name, rest = asset["name"].split(".ccchub1.")
+                series, rest = rest.split(".ccchub2.")
+                architecture_, rest = rest.split(".ccchub3.")
+                parent = rest.removesuffix(".charmcraftcachehub").split("_")
                 file_path = (
                     build_base_subdirectory
                     / f"BuilddBaseAlias.{series.upper()}"
@@ -305,6 +324,8 @@ def pack(context: typer.Context, verbose: Verbose = False):
                     / name
                 )
                 if series != dependency.series:
+                    continue
+                if architecture_ != dependency.architecture:
                     continue
                 if file_path.exists():
                     logger.debug(f"{name} already downloaded for {dependency.series}")
@@ -319,7 +340,7 @@ def pack(context: typer.Context, verbose: Verbose = False):
         else:
             missing_wheels += 1
             logger.debug(
-                f"No pre-built wheel found for {dependency.name} {dependency.version} {dependency.series}"
+                f"No pre-built wheel found for {dependency.name} {dependency.version} {dependency.series} {dependency.architecture}"
             )
     if missing_wheels:
         logger.warning(
@@ -468,6 +489,7 @@ def clean_cache_if_version_changed(version_type: VersionType, current_version: s
 
 
 SERIES = {"20.04": "focal", "22.04": "jammy"}
+CHARMCRAFT_ARCHITECTURES = {"x86_64": "amd64", "aarch64": "arm64"}
 installed_version = importlib.metadata.version("charmcraftcache")
 state = State()
 cache_directory = pathlib.Path("~/.cache/charmcraftcache/").expanduser()
