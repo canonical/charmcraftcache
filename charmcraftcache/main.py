@@ -302,7 +302,7 @@ def pack(context: typer.Context, verbose: Verbose = False):
     assets = {}
     # TODO: remove hardcoded path
     build_base_subdirectory = (
-        charmcraft_cache_subdirectory / "charmcraft-buildd-base-v5.0"
+        charmcraft_cache_subdirectory / "charmcraft-buildd-base-v8.0"
     )
     build_base_subdirectory.mkdir(parents=True, exist_ok=True)
     logger.debug(
