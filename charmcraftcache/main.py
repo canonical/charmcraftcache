@@ -159,11 +159,14 @@ def exit_for_rate_limit(response: requests.Response):
     try:
         response.raise_for_status()
     except requests.HTTPError:
-        raise Exception(
+        message = (
             f"GitHub API rate limit exceeded. Retry in {retry_delta} at {retry_time.astimezone()}. "
             "Seeing this often? Please add a comment to this issue: "
             "https://github.com/canonical/charmcraftcache/issues/1"
         )
+        if not os.environ.get("GH_TOKEN"):
+            message += "\nIf running in CI, pass `GH_TOKEN` environment variable"
+        raise Exception(message)
 
 
 def get_charmcraft_yaml_bases(
@@ -276,6 +279,8 @@ def pack(context: typer.Context, verbose: Verbose = False):
         pass
     else:
         headers["If-None-Match"] = etag
+    if github_token := os.environ.get("GH_TOKEN"):
+        headers["Authorization"] = f"Bearer {github_token}"
     response = requests.get(
         "https://api.github.com/repos/canonical/charmcraftcache-hub/releases/latest",
         headers=headers,
