@@ -140,7 +140,7 @@ def exit_for_rate_limit(response: requests.Response):
     if response.status_code not in (403, 429):
         return
     # https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#exceeding-the-rate-limit
-    if int(response.headers["x-ratelimit-remaining"]) == 0 and (
+    if int(response.headers.get("x-ratelimit-remaining", -1)) == 0 and (
         reset := response.headers.get("x-ratelimit-reset")
     ):
         retry_time = datetime.datetime.fromtimestamp(
