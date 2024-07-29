@@ -305,11 +305,21 @@ def pack(context: typer.Context, verbose: Verbose = False):
     clean_cache_if_version_changed(VersionType.CHARMCRAFTCACHE_HUB, hub_version)
     missing_wheels = 0
     assets = {}
-    # TODO: remove hardcoded path
+    # TODO: remove hardcoded paths
     build_base_subdirectory = (
-        charmcraft_cache_subdirectory / "charmcraft-buildd-base-v8.0"
+        charmcraft_cache_subdirectory / "charmcraft-buildd-base-v7"
     )
     build_base_subdirectory.mkdir(parents=True, exist_ok=True)
+    # Backwards compatability for charmcraft 2.7
+    c27_base_subdirectory = (
+        charmcraft_cache_subdirectory / "charmcraft-buildd-base-v8.0"
+    )
+    if not c27_base_subdirectory.is_symlink():
+        try:
+            shutil.rmtree(c27_base_subdirectory)
+        except FileNotFoundError:
+            pass
+        c27_base_subdirectory.symlink_to(build_base_subdirectory)
     logger.debug(
         f'Selecting wheels for Ubuntu versions ({architecture}): {", ".join(bases)}'
     )
