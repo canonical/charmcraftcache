@@ -246,25 +246,26 @@ def pack(context: typer.Context, verbose: Verbose = False):
     bases = get_charmcraft_yaml_bases(
         charmcraft_yaml=charmcraft_yaml, architecture=architecture
     )
-    binary_packages: list[str] = (
-        yaml.safe_load(charmcraft_yaml.read_text())
+    binary_packages: list[packaging.utils.NormalizedName] = [
+        packaging.utils.canonicalize_name(package, validate=True)
+        for package in yaml.safe_load(charmcraft_yaml.read_text())
         .get("parts", {})
         .get("charm", {})
         .get("charm-binary-python-packages", [])
-    )
+    ]
     for dependency in report["install"]:
-        wheel_file_name = dependency["metadata"]["name"]
-        if wheel_file_name in binary_packages:
+        name = packaging.utils.canonicalize_name(
+            dependency["metadata"]["name"], validate=True
+        )
+        if name in binary_packages:
             logger.debug(
-                f"{wheel_file_name} in charm-binary-python-packages. Skipping wheel download"
+                f"{name} in charm-binary-python-packages. Skipping wheel download"
             )
             continue
         for base in bases:
             dependencies.append(
                 Dependency(
-                    name=packaging.utils.canonicalize_name(
-                        wheel_file_name, validate=True
-                    ),
+                    name=name,
                     version=packaging.version.Version(
                         dependency["metadata"]["version"]
                     ),
