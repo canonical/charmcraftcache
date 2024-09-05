@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 
+import packaging.utils
 import packaging.version
 import requests
 import rich
@@ -91,8 +92,8 @@ class State:
 
 @dataclasses.dataclass(frozen=True, kw_only=True)
 class Dependency:
-    name: str
-    version: str
+    name: packaging.utils.NormalizedName
+    version: packaging.version.Version
     series: str
     architecture: str
 
@@ -252,17 +253,21 @@ def pack(context: typer.Context, verbose: Verbose = False):
         .get("charm-binary-python-packages", [])
     )
     for dependency in report["install"]:
-        name = dependency["metadata"]["name"]
-        if name in binary_packages:
+        wheel_file_name = dependency["metadata"]["name"]
+        if wheel_file_name in binary_packages:
             logger.debug(
-                f"{name} in charm-binary-python-packages. Skipping wheel download"
+                f"{wheel_file_name} in charm-binary-python-packages. Skipping wheel download"
             )
             continue
         for base in bases:
             dependencies.append(
                 Dependency(
-                    name=name,
-                    version=dependency["metadata"]["version"],
+                    name=packaging.utils.canonicalize_name(
+                        wheel_file_name, validate=True
+                    ),
+                    version=packaging.version.Version(
+                        dependency["metadata"]["version"]
+                    ),
                     series=SERIES[base],
                     architecture=architecture,
                 )
@@ -325,10 +330,15 @@ def pack(context: typer.Context, verbose: Verbose = False):
     )
     for dependency in dependencies:
         for asset in response_data["assets"]:
-            if asset["name"].startswith(
-                f'{dependency.name.replace("-", "_")}-{dependency.version}-'
+            wheel_file_name, rest = asset["name"].split(".ccchub1.")
+            # https://packaging.python.org/en/latest/specifications/binary-distribution-format/#file-name-convention
+            wheel_package_name, wheel_version, *_ = (
+                packaging.utils.parse_wheel_filename(wheel_file_name)
+            )
+            if (
+                wheel_package_name == dependency.name
+                and wheel_version == dependency.version
             ):
-                name, rest = asset["name"].split(".ccchub1.")
                 series, rest = rest.split(".ccchub2.")
                 architecture_, rest = rest.split(".ccchub3.")
                 parent = rest.removesuffix(".charmcraftcachehub").split("_")
@@ -336,19 +346,21 @@ def pack(context: typer.Context, verbose: Verbose = False):
                     build_base_subdirectory
                     / f"BuilddBaseAlias.{series.upper()}"
                     / "/".join(parent)
-                    / name
+                    / wheel_file_name
                 )
                 if series != dependency.series:
                     continue
                 if architecture_ != dependency.architecture:
                     continue
                 if file_path.exists():
-                    logger.debug(f"{name} already downloaded for {dependency.series}")
+                    logger.debug(
+                        f"{wheel_file_name} already downloaded for {dependency.series}"
+                    )
                 else:
                     assets[dependency] = Asset(
                         path=file_path,
                         download_url=asset["browser_download_url"],
-                        name=name,
+                        name=wheel_file_name,
                         size=asset["size"],
                     )
                 break

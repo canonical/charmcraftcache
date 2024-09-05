@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "charmcraftcache"
-version = "0.3.5"
+version = "0.3.6"
 description = "Fast first-time builds for charmcraft"
 authors = ["Carl Csaposs <carl.csaposs@canonical.com>"]
 readme = "README.md"
@@ -11,15 +11,15 @@ charmcraftcache = "charmcraftcache.main:app"
 
 [tool.poetry.dependencies]
 python = "^3.10"
-pip = "^23.3.1"
-typer = {extras = ["all"], version = "^0.9.0"}
-requests = "^2.31.0"
-packaging = "^23.2"
-pyyaml = "^6.0.1"
+pip = "^24.2"
+typer = {extras = ["all"], version = "^0.12.5"}
+requests = "^2.32.3"
+packaging = "^24.1"
+pyyaml = "^6.0.2"
 
 [tool.poetry.group.format.dependencies]
-black = "^23.10.1"
-isort = "^5.12.0"
+black = "^24.8.0"
+isort = "^5.13.2"
 
 [build-system]
 requires = ["poetry-core"]
