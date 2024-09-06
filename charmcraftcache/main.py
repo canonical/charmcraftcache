@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 
+import packaging.requirements
 import packaging.utils
 import packaging.version
 import requests
@@ -247,7 +248,12 @@ def pack(context: typer.Context, verbose: Verbose = False):
         charmcraft_yaml=charmcraft_yaml, architecture=architecture
     )
     binary_packages: list[packaging.utils.NormalizedName] = [
-        packaging.utils.canonicalize_name(package, validate=True)
+        packaging.utils.canonicalize_name(
+            # If `charm-strict-dependencies` is false, `charm-binary-python-packages` can contain
+            # version specifiers. Use `packing.requirements.Requirement` to isolate dependency name
+            packaging.requirements.Requirement(package).name,
+            validate=True,
+        )
         for package in yaml.safe_load(charmcraft_yaml.read_text())
         .get("parts", {})
         .get("charm", {})
