@@ -1,3 +1,4 @@
+import contextlib
 import dataclasses
 import datetime
 import enum
@@ -10,6 +11,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import tempfile
 
 import packaging.requirements
 import packaging.utils
@@ -107,16 +109,34 @@ class Asset:
     size: int
 
 
+@contextlib.contextmanager
+def empty_requirements_txt():
+    """Create empty requirements.txt file if it does not exist
+
+    Workaround for https://github.com/canonical/charmcraft/issues/1389 on charmcraft 2
+    """
+    requirements_txt = pathlib.Path("requirements.txt")
+    if requirements_txt.exists():
+        yield
+        return
+    requirements_txt.touch(exist_ok=False)
+    try:
+        yield
+    finally:
+        requirements_txt.unlink()
+
+
 def run_charmcraft(command: list[str]):
     try:
-        version = json.loads(
-            subprocess.run(
-                ["charmcraft", "version", "--format", "json"],
-                capture_output=True,
-                check=True,
-                encoding="utf-8",
-            ).stdout
-        )["version"]
+        with empty_requirements_txt():
+            version = json.loads(
+                subprocess.run(
+                    ["charmcraft", "version", "--format", "json"],
+                    capture_output=True,
+                    check=True,
+                    encoding="utf-8",
+                ).stdout
+            )["version"]
     except FileNotFoundError:
         version = None
     if packaging.version.parse(version or "0.0.0") < packaging.version.parse("2.5.4"):
@@ -129,7 +149,8 @@ def run_charmcraft(command: list[str]):
     if state.verbose:
         command.append("-v")
     try:
-        subprocess.run(["charmcraft", *command], check=True, env=env)
+        with empty_requirements_txt():
+            subprocess.run(["charmcraft", *command], check=True, env=env)
     except subprocess.CalledProcessError as exception:
         # `charmcraft` stderr will be shown in terminal, no need to raise exception—just log
         # traceback.
@@ -196,6 +217,43 @@ def get_charmcraft_yaml_bases(
     return versions
 
 
+@contextlib.contextmanager
+def converted_requirements_txt():
+    """requirements.txt that is already present or generated from poetry.lock"""
+    poetry_lock_exists = pathlib.Path("poetry.lock").exists()
+    if not poetry_lock_exists:
+        requirements_txt = pathlib.Path("requirements.txt")
+        if not requirements_txt.exists():
+            raise FileNotFoundError("requirements.txt not found")
+        yield requirements_txt
+        return
+    with tempfile.TemporaryDirectory() as tmpdir:
+        requirements_txt = pathlib.Path(tmpdir) / "requirements.txt"
+        # Convert subset of poetry.lock to requirements.txt
+        try:
+            subprocess.run(
+                [
+                    "poetry",
+                    "export",
+                    "--only",
+                    "main,charm-libs",
+                    "--output",
+                    str(requirements_txt),
+                ],
+                check=True,
+            )
+        except FileNotFoundError:
+            raise Exception(
+                "poetry.lock detected but poetry not installed. Install poetry"
+            )
+        # TODO: add handling if poetry installed but poetry-plugin-export not installed
+        # (only applicable once https://github.com/python-poetry/poetry/pull/5980 merged)
+        except subprocess.CalledProcessError:
+            raise Exception("Failed to create requirements.txt from poetry.lock")
+        logger.debug("Converted subset of poetry.lock to requirements.txt")
+        yield requirements_txt
+
+
 @app.command(
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True}
 )
@@ -213,36 +271,32 @@ def pack(context: typer.Context, verbose: Verbose = False):
             f'Passing unrecognized arguments to `charmcraft pack`: {" ".join(context.args)}'
         )
     logger.info("Resolving dependencies")
-    if not pathlib.Path("requirements.txt").exists():
-        if not pathlib.Path("charmcraft.yaml").exists():
-            raise FileNotFoundError(
-                "requirements.txt not found. `cd` into the directory with charmcraft.yaml"
-            )
-        else:
-            raise FileNotFoundError(
-                "requirements.txt not found. Are you using a pack wrapper (e.g. `tox run -e build-dev`)? If so, call charmcraftcache via the wrapper."
-            )
-    report_file = cache_directory / "report.json"
-    subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "pip",
-            "install",
-            "--dry-run",
-            "-r",
-            "requirements.txt",
-            "--ignore-installed",
-            "--report",
-            str(report_file),
-        ],
-        stdout=None if state.verbose else subprocess.DEVNULL,
-        check=True,
-    )
+    charmcraft_yaml = pathlib.Path("charmcraft.yaml")
+    if not charmcraft_yaml.exists():
+        raise FileNotFoundError(
+            "charmcraft.yaml not found. `cd` into the directory with charmcraft.yaml"
+        )
+    with converted_requirements_txt() as requirements_txt:
+        report_file = cache_directory / "report.json"
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "install",
+                "--dry-run",
+                "-r",
+                str(requirements_txt),
+                "--ignore-installed",
+                "--report",
+                str(report_file),
+            ],
+            stdout=None if state.verbose else subprocess.DEVNULL,
+            check=True,
+        )
     with open(report_file, "r") as file:
         report = json.load(file)
     dependencies = []
-    charmcraft_yaml = pathlib.Path("charmcraft.yaml")
     architecture = platform.machine()
     bases = get_charmcraft_yaml_bases(
         charmcraft_yaml=charmcraft_yaml, architecture=architecture
