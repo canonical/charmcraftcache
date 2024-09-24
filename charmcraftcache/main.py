@@ -239,6 +239,11 @@ def converted_requirements_txt():
                     "main,charm-libs",
                     "--output",
                     str(requirements_txt),
+                    # Workaround for not being able to use hashes for git dependencies
+                    # (https://github.com/python-poetry/poetry-plugin-export/issues/69)
+                    # Hashes are not used by charmcraftcache to determine which wheels to download,
+                    # so this shouldn't have any security impact
+                    "--without-hashes",
                 ],
                 check=True,
             )
