@@ -12,36 +12,41 @@ import subprocess
 import tarfile
 
 import click.types
-import packaging.requirements
-import packaging.utils
 import packaging.version
 import requests
-import rich
 import rich.console
-import rich.highlighter
-import rich.logging
 import rich.progress
+import rich.text
 import typer
 import typing_extensions
 import yaml
 
 app = typer.Typer(help="Fast first-time builds for charmcraft")
 Verbose = typing_extensions.Annotated[bool, typer.Option("--verbose", "-v")]
-if os.environ.get("CI") == "true":
+running_in_ci = os.environ.get("CI") == "true"
+if running_in_ci:
     # Show colors in CI (https://rich.readthedocs.io/en/stable/console.html#terminal-detection)
     console = rich.console.Console(highlight=False, force_terminal=True, force_interactive=False)
 else:
     console = rich.console.Console(highlight=False)
 logger = logging.getLogger(__name__)
-handler = rich.logging.RichHandler(
-    console=console,
-    show_time=False,
-    omit_repeated_times=False,
-    show_level=False,
-    show_path=False,
-    highlighter=rich.highlighter.NullHighlighter(),
-    markup=True,
-)
+
+
+class RichHandler(logging.Handler):
+    """Use rich to print logs"""
+
+    def emit(self, record):
+        try:
+            message = self.format(record)
+            if getattr(record, "disable_wrap", False):
+                console.print(message, overflow="ignore", crop=False)
+            else:
+                console.print(message)
+        except Exception:
+            self.handleError(record)
+
+
+handler = RichHandler()
 
 
 class WarningFormatter(logging.Formatter):
@@ -49,9 +54,7 @@ class WarningFormatter(logging.Formatter):
 
     def format(self, record):
         if record.levelno >= logging.WARNING or state.verbose:
-            level = handler.get_level_text(record)
-            # Rich adds padding to level—remove it
-            level.rstrip()
+            level = rich.text.Text(record.levelname, f"logging.level.{record.levelname.lower()}")
             replacement = f"{level.markup} "
         else:
             replacement = ""
@@ -646,11 +649,20 @@ def add(verbose: Verbose = False):
         .prepare()
         .url
     )
-    logger.info(
-        f"To add your charm to the pre-built cache, open an issue here:\n\n"
-        f"[link={issue_url}]{issue_url}[/link]\n"
-    )
-    typer.launch(issue_url)
+    if running_in_ci:
+        # Hyperlink ASCII escape code (used by rich links) not supported by GitHub Actions
+        logger.info(
+            # Space after newline needed to show blank line on GitHub Actions
+            f"To add your charm to the pre-built cache, open an issue here:\n \n{issue_url}\n ",
+            # Prevent issue URL from getting wrapped
+            extra={"disable_wrap": True},
+        )
+    else:
+        logger.info(
+            f"To add your charm to the pre-built cache, open an issue here:\n\n"
+            f"[link={issue_url}]{issue_url}\n"
+        )
+        typer.launch(issue_url)
     logger.info(
         "After the issue is opened, it will be automatically processed. Then, it will take a few "
         "minutes to build the cache. After the cache has been built, `ccc pack` will be available "
