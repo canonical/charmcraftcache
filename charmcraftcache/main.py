@@ -127,9 +127,9 @@ def run_charmcraft(command: list[str], *, charmcraft_cache_dir: pathlib.Path = N
     if charmcraft_cache_dir:
         env["CRAFT_SHARED_CACHE"] = str(charmcraft_cache_dir)
         charmcraft_cache_dir.mkdir(parents=True, exist_ok=True)
+    command = ["charmcraft", *command]
     if state.verbose:
         command.append("-v")
-    command = ["charmcraft", *command]
     try:
         with empty_requirements_txt():
             logger.debug(f"Running {command} with {charmcraft_cache_dir=}")
