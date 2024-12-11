@@ -282,8 +282,10 @@ def get_remote_repository(remote: str, /):
     url = subprocess.run(
         ["git", "remote", "get-url", remote], capture_output=True, check=True, text=True
     ).stdout.strip()
-    logger.debug(f"Unable to parse GitHub repository for {remote=} from {url=}")
-    return get_github_repository(url)
+    repository_name = get_github_repository(url)
+    if repository_name is None:
+        logger.debug(f"Unable to parse GitHub repository for {remote=} from {url=}")
+    return repository_name
 
 
 def possible_github_repositories(*, charmcraft_yaml: pathlib.Path):
