@@ -10,19 +10,40 @@ pipx install charmcraftcache
 ```
 
 ## Usage
-```
-ccc add
-ccc pack
+For best results, use [charmcraft's Poetry plugin](https://canonical-charmcraft.readthedocs-hosted.com/en/stable/reference/plugins/poetry_plugin/) or add `charm-strict-dependencies: true` to your charmcraft.yaml.
+
+### Step 1: Update charmcraft.yaml to supported syntax
+Only [ST124 - Multi-base platforms in craft tools](https://docs.google.com/document/d/1QVHxZumruKVZ3yJ2C74qWhvs-ye5I9S6avMBDHs2YcQ/edit) "shorthand notation" syntax is supported
+
+#### Example
+```yaml
+platforms:
+  ubuntu@22.04:amd64:
+  ubuntu@22.04:arm64:
+  ubuntu@24.04:amd64:
+  ubuntu@24.04:arm64:
 ```
 
-For best results, add `charm-strict-dependencies: true` to your charmcraft.yaml.
+Under the charmcraft.yaml `platforms` key, `build-on` and `build-for` syntax are not supported
+
+The `base` and `bases` charmcraft.yaml keys are not supported
+
+### Step 2: Add your charm to the cache
+```
+ccc add
+```
+
+### Step 3: Pack your charm
+```
+ccc pack
+```
 
 ## How it works
 ### Why are charmcraft builds slow?
 Instead of downloading wheels from PyPI (which pip does by default), charmcraft builds Python package wheels from source (i.e. with pip install [--no-binary](https://pip.pypa.io/en/stable/cli/pip_install/#cmdoption-no-binary)).
 
 ### Caching mechanism
-charmcraft builds each charm base in a separate LXC container[^1]. Within each container, pip has an [internal cache](https://pip.pypa.io/en/stable/topics/caching/) for wheels built from source & for HTTP responses.
+charmcraft builds each charm platform in a separate LXC container[^1]. Within each container, pip has an [internal cache](https://pip.pypa.io/en/stable/topics/caching/) for wheels built from source & for HTTP responses.
 
 charmcraft 2.5 moved the pip internal cache to the LXC host machine, so that one pip cache is used for all LXC containers. (This increases the chance of a cache hit—a faster build.)
 
@@ -38,6 +59,25 @@ Note: Within the GitHub release, each charm has an isolated cache. If the same c
 
 ### Isn't this just a worse version of PyPI?
 Pretty much. The only difference is charmcraftcache-hub wheels are built from source on our runners, instead of built by the package maintainer.
+
+### Why does charmcraftcache only support "shorthand notation" syntax in charmcraft.yaml `platforms`?
+"Shorthand notation" is used when `build-on` is identical to `build-for`. (For example, "ubuntu@22.04:amd64" means build on Ubuntu 22.04 amd64 and build for Ubuntu 22.04 amd64.)
+
+For charms that depend (directly or indirectly) on Python packages with C extensions (e.g. pyyaml), charmcraft will build wheels where the C extensions only work on `build-on`.
+
+For example, if a charm is built with
+```yaml
+platforms:
+  foo:
+    build-on: ubuntu@22.04:amd64
+    build-for:
+      - ubuntu@22.04:amd64
+      - ubuntu@22.04:arm64
+```
+the wheels in the *.charm file will contain C extensions that only work on amd64, not arm64.
+
+The vast majority of charms have at least one Python dependency with C extensions, so the vast majority of charms should use "shorthand notation".
+
 
 [^1]: Unless `--destructive-mode` is enabled
 

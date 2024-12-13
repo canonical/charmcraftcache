@@ -1,4 +1,4 @@
-import contextlib
+import collections
 import dataclasses
 import datetime
 import importlib.metadata
@@ -11,7 +11,6 @@ import shutil
 import subprocess
 import tarfile
 
-import click.types
 import packaging.version
 import requests
 import rich.console
@@ -20,6 +19,8 @@ import rich.text
 import typer
 import typing_extensions
 import yaml
+
+from . import _platforms
 
 app = typer.Typer(help="Fast first-time builds for charmcraft")
 Verbose = typing_extensions.Annotated[bool, typer.Option("--verbose", "-v")]
@@ -91,38 +92,25 @@ class State:
         logger.debug(f"Version: {installed_version}")
 
 
-@contextlib.contextmanager
-def empty_requirements_txt():
-    """Create empty requirements.txt file if it does not exist
-
-    Workaround for https://github.com/canonical/charmcraft/issues/1389 on charmcraft 2
-    """
-    requirements_txt = pathlib.Path("requirements.txt")
-    if requirements_txt.exists():
-        yield
-        return
-    requirements_txt.touch(exist_ok=False)
-    try:
-        yield
-    finally:
-        requirements_txt.unlink()
-
-
 def run_charmcraft(command: list[str], *, charmcraft_cache_dir: pathlib.Path = None):
     try:
-        with empty_requirements_txt():
-            version = json.loads(
-                subprocess.run(
-                    ["charmcraft", "version", "--format", "json"],
-                    capture_output=True,
-                    check=True,
-                    text=True,
-                ).stdout
-            )["version"]
+        version = json.loads(
+            subprocess.run(
+                ["charmcraft", "version", "--format", "json"],
+                capture_output=True,
+                check=True,
+                text=True,
+            ).stdout
+        )["version"]
     except FileNotFoundError:
         version = None
-    if packaging.version.parse(version or "0.0.0") < packaging.version.parse("2.5.4"):
-        raise Exception(f'charmcraft {version or "not"} installed. charmcraft >=2.5.4 required')
+    # TODO: bump min to 3.3
+    if packaging.version.parse(version or "0.0.0") < packaging.version.parse(
+        "3.2.2.post137+ge820f399"
+    ):
+        raise Exception(
+            f'charmcraft {version or "not"} installed. charmcraft >=3.2.2.post137+ge820f399 required'
+        )
     env = os.environ
     if charmcraft_cache_dir:
         env["CRAFT_SHARED_CACHE"] = str(charmcraft_cache_dir)
@@ -131,9 +119,8 @@ def run_charmcraft(command: list[str], *, charmcraft_cache_dir: pathlib.Path = N
     if state.verbose:
         command.append("-v")
     try:
-        with empty_requirements_txt():
-            logger.debug(f"Running {command} with {charmcraft_cache_dir=}")
-            subprocess.run(command, check=True, env=env)
+        logger.debug(f"Running {command} with {charmcraft_cache_dir=}")
+        subprocess.run(command, check=True, env=env)
     except subprocess.CalledProcessError as exception:
         # `charmcraft` stderr will be shown in terminal, no need to raise exception—just log
         # traceback.
@@ -173,64 +160,6 @@ def exit_for_rate_limit(response: requests.Response):
         raise Exception(message)
 
 
-class Base(str):
-    def __new__(cls, *args, base_index: int, **kwargs):
-        instance: Base = super().__new__(cls, *args, **kwargs)
-        instance.base_index = base_index
-        return instance
-
-
-def get_charmcraft_yaml_bases(
-    *, charmcraft_yaml: pathlib.Path, architecture: str, base_indexes: list[int] = None
-):
-    """Get bases from charmcraft.yaml
-
-    Return shorthand notation for base name (e.g. 'ubuntu@22.04:amd64')
-
-    From specification ST124 - Multi-base platforms in craft tools
-    (https://docs.google.com/document/d/1QVHxZumruKVZ3yJ2C74qWhvs-ye5I9S6avMBDHs2YcQ/edit)
-
-    Syntaxes other than "shorthand notation" are not supported since build-on and build-for should
-    match (otherwise wheels will be incompatible)
-    """
-    bases = []
-    yaml_bases = yaml.safe_load(charmcraft_yaml.read_text())["bases"]
-    for index, base in enumerate(yaml_bases):
-        if base_indexes and index not in base_indexes:
-            continue
-        # Handle multiple bases formats
-        # See https://discourse.charmhub.io/t/charmcraft-bases-provider-support/4713
-        build_on = base.get("build-on")
-        if build_on:
-            assert isinstance(build_on, list) and len(build_on) == 1
-            base = build_on[0]
-        build_on_architectures = base.get("architectures", ["amd64"])
-        assert len(build_on_architectures) == 1, (
-            f"Multiple architectures ({build_on_architectures}) in one (charmcraft.yaml) base not "
-            "supported. Use one base per architecture"
-        )
-        build_on_arch = build_on_architectures[0]
-        if build_on_arch == architecture:
-            assert base["name"] == "ubuntu"
-            bases.append(Base(f'ubuntu@{base["channel"]}:{build_on_arch}', base_index=index))
-        elif base_indexes:
-            assert index in base_indexes
-            raise Exception(
-                f"Architecture of base index {index} ({repr(build_on_arch)}) does not match "
-                f"architecture of this machine ({repr(architecture)})"
-            )
-    if base_indexes:
-        # Check if any of `base_indexes` are out of range
-        for index in base_indexes:
-            try:
-                yaml_bases[index]
-            except IndexError:
-                raise IndexError(
-                    f"'--bases-index' {index} out of range for charmcraft.yaml 'bases' list"
-                )
-    return bases
-
-
 class UnableToDetectRelativePath(Exception):
     """Unable to detect relative path to charmcraft.yaml from git repository root"""
 
@@ -268,6 +197,7 @@ def get_github_repository(url: str, /):
     # Example 1 `url`: "git@github.com:canonical/mysql-router-k8s-operator.git"
     # Example 2 `url`: "https://github.com/canonical/mysql-router-k8s-operator.git"
 
+    url = url.removesuffix("/")
     url = url.removesuffix(".git")
     for prefix in ("git@github.com:", "https://github.com/"):
         if url.startswith(prefix):
@@ -342,26 +272,38 @@ class Asset:
     download_url: str
     name: str
     size: int
-    base: Base
+    platform: _platforms.Platform
 
 
-class BaseIndex(click.IntRange):
-    def fail(self, message: str, param=None, ctx=None):
-        if f"is not a valid {self.name}" in message:
-            message += " '--bases-index' can be passed more than once."
-        super().fail(message=message, param=param, ctx=ctx)
+class Platform(_platforms.Platform):
+    """Parser for typer parameter
+
+    Use subclass instead of function to workaround https://github.com/fastapi/typer/discussions/618
+    """
+
+    def __new__(cls, value: str, /):
+        try:
+            return super().__new__(cls, value)
+        except ValueError:
+            raise typer.BadParameter(
+                f"{repr(value)} is not a valid ST124 shorthand notation platform.\n\n"
+                "More info: https://github.com/canonical/charmcraftcache?tab=readme-ov-file#step-1-update-charmcraftyaml-to-supported-syntax"
+            )
 
 
 @app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})
 def pack(
     context: typer.Context,
     verbose: Verbose = False,
-    bases_index: typing_extensions.Annotated[
-        list[int],
+    selected_platforms: typing_extensions.Annotated[
+        list[_platforms.Platform],
         typer.Option(
-            click_type=BaseIndex(min=0),
-            show_default="all bases for this machine's architecture",
-            help="Index(es) of base(s) in charmcraft.yaml 'bases' to build",
+            "--platform",
+            parser=Platform,
+            show_default="all platforms for this machine's architecture",
+            help="Platform(s) in charmcraft.yaml 'platforms' (e.g. 'ubuntu@22.04:amd64'). "
+            "Shorthand notation required ('build-on' and 'build-for' not supported) in "
+            "charmcraft.yaml",
         ),
     ] = None,
 ):
@@ -383,13 +325,36 @@ def pack(
             "charmcraft.yaml not found. `cd` into the directory with charmcraft.yaml"
         )
     architecture = {"x86_64": "amd64", "aarch64": "arm64"}[platform.machine()]
-    bases = get_charmcraft_yaml_bases(
-        charmcraft_yaml=charmcraft_yaml, architecture=architecture, base_indexes=bases_index
-    )
-    if bases_index:
-        logger.debug(f"Selected (for {bases_index=}) {bases=}")
+    if selected_platforms is None:
+        platforms = [
+            platform_
+            for platform_ in _platforms.get(charmcraft_yaml)
+            if platform_.architecture == architecture
+        ]
+        logger.debug(f"Detected (for {architecture=}) {platforms=}")
     else:
-        logger.debug(f"Detected (for {architecture=}) {bases=}")
+        duplicate_selected_platforms = [
+            key for key, value in collections.Counter(selected_platforms).items() if value > 1
+        ]
+        if duplicate_selected_platforms:
+            raise ValueError(
+                f"--platform {repr(duplicate_selected_platforms[0])} passed more than once. Is "
+                "this a typo?"
+            )
+        charmcraft_yaml_platforms = _platforms.get(charmcraft_yaml)
+        for platform_ in selected_platforms:
+            if platform_ not in charmcraft_yaml_platforms:
+                raise ValueError(
+                    f"--platform {repr(platform_)} not found in charmcraft.yaml 'platforms': "
+                    f"{repr(charmcraft_yaml_platforms)}"
+                )
+            if platform_.architecture != architecture:
+                raise ValueError(
+                    f"Architecture of --platform {repr(platform_)} does not match architecture of "
+                    f"this machine ({repr(architecture)})"
+                )
+        platforms = selected_platforms
+        logger.debug(f"Selected {platforms=}")
 
     logger.debug("Getting latest charmcraftcache-hub release via GitHub API")
     headers = {"Accept": "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28"}
@@ -437,13 +402,12 @@ def pack(
     relative_path_to_charmcraft_yaml = get_relative_path_to_charmcraft_yaml()
     logger.debug("Detecting GitHub repository")
     for github_repository in possible_github_repositories(charmcraft_yaml=charmcraft_yaml):
-        # Base: name of GitHub release asset
+        # Platform: name of GitHub release asset
         expected_asset_names = {}
-        for base in bases:
-            encoded_base_name: str = base.replace(":", "_ccchubbase_")
-            asset_name = f"{github_repository}_ccchub1_{relative_path_to_charmcraft_yaml}_ccchub2_{encoded_base_name}.tar.gz"
+        for platform_ in platforms:
+            asset_name = f"{github_repository}_ccchub1_{relative_path_to_charmcraft_yaml}_ccchub2_{platform_.name_in_release}.tar.gz"
             asset_name = asset_name.replace("/", "_")
-            expected_asset_names[base] = asset_name
+            expected_asset_names[platform_] = asset_name
         # If at least one GitHub release asset is found for this `github_repository`, assume this
         # `github_repository` is correct.
         for asset in response_data["assets"]:
@@ -460,7 +424,7 @@ def pack(
         add()
         exit(1)
     assets = []
-    for base, asset_name in expected_asset_names.items():
+    for platform_, asset_name in expected_asset_names.items():
         for asset in response_data["assets"]:
             name = asset["name"]
             if name == asset_name:
@@ -471,14 +435,14 @@ def pack(
                         download_url=asset["browser_download_url"],
                         name=name,
                         size=asset["size"],
-                        base=base,
+                        platform=platform_,
                     )
                 )
                 break
         else:
             logger.error(
                 f"Unable to find pre-built cache for GitHub repository {repr(github_repository)} "
-                f"and base {repr(base)}"
+                f"and platform {repr(platform_)}"
             )
             add()
             exit(1)
@@ -486,7 +450,7 @@ def pack(
     assets_to_download = []
     for asset in assets:
         if asset.path.exists():
-            logger.debug(f"Cache already downloaded for base: {repr(asset.base)}")
+            logger.debug(f"Cache already downloaded for platform: {repr(asset.platform)}")
         else:
             assets_to_download.append(asset)
     with rich.progress.Progress(console=console) as progress:
@@ -507,7 +471,7 @@ def pack(
                     progress.update(task, advance=len(chunk))
             asset.path.parent.mkdir(parents=True, exist_ok=True)
             shutil.move(temporary_path, asset.path)
-            logger.debug(f"Downloaded cache for base: {repr(asset.base)}")
+            logger.debug(f"Downloaded cache for platform: {repr(asset.platform)}")
         if not assets_to_download:
             # Set progress as completed if no archives downloaded
             progress.update(task, completed=1, total=1)
@@ -526,31 +490,23 @@ def pack(
         shutil.rmtree(charm_cache)
     all_archives_fully_unpacked.unlink(missing_ok=True)
     for asset in assets:
-        charmcraft_cache_dir = charm_cache / asset.base
+        charmcraft_cache_dir = charm_cache / asset.platform
         if charmcraft_cache_dir.exists():
-            logger.debug(f"Cache already unpacked for base: {repr(asset.base)}")
+            logger.debug(f"Cache already unpacked for platform: {repr(asset.platform)}")
             continue
         # TODO: remove hardcoded paths
         build_base_subdirectory = charmcraft_cache_dir / "charmcraft-buildd-base-v7"
         build_base_subdirectory.mkdir(parents=True)
-        # Backwards compatability for charmcraft 2.7
-        c27_base_subdirectory = charmcraft_cache_dir / "charmcraft-buildd-base-v8.0"
-        if not c27_base_subdirectory.is_symlink():
-            try:
-                shutil.rmtree(c27_base_subdirectory)
-            except FileNotFoundError:
-                pass
-            c27_base_subdirectory.symlink_to(build_base_subdirectory)
         with tarfile.open(asset.path) as file:
             file.extractall(build_base_subdirectory, filter="data")
-        logger.debug(f"Unpacked cache for base: {repr(asset.base)}")
+        logger.debug(f"Unpacked cache for platform: {repr(asset.platform)}")
     all_archives_fully_unpacked.touch()
 
-    for base in bases:
-        logger.info(f"Packing base: {repr(base)}")
+    for platform_ in platforms:
+        logger.info(f"Packing platform: {repr(platform_)}")
         run_charmcraft(
-            ["pack", "--bases-index", str(base.base_index), *context.args],
-            charmcraft_cache_dir=charm_cache / base,
+            ["pack", "--platform", platform_, *context.args],
+            charmcraft_cache_dir=charm_cache / platform_,
         )
 
 

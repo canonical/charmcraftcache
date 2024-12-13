@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "charmcraftcache"
-version = "0.5.5"
+version = "0.6.0"
 description = "Fast first-time builds for charmcraft"
 authors = ["Carl Csaposs <carl.csaposs@canonical.com>"]
 readme = "README.md"
 
 [tool.poetry.scripts]
-ccc = "charmcraftcache.main:app"
-charmcraftcache = "charmcraftcache.main:app"
+ccc = "charmcraftcache._main:app"
+charmcraftcache = "charmcraftcache._main:app"
 
 [tool.poetry.dependencies]
 python = "^3.10"
