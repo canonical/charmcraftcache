@@ -26,7 +26,7 @@ Verbose = typing_extensions.Annotated[bool, typer.Option("--verbose", "-v")]
 running_in_ci = os.environ.get("CI") == "true"
 if running_in_ci:
     # Show colors in CI (https://rich.readthedocs.io/en/stable/console.html#terminal-detection)
-    console = rich.console.Console(highlight=False, force_terminal=True, force_interactive=False)
+    console = rich.console.Console(highlight=False, color_system="truecolor")
 else:
     console = rich.console.Console(highlight=False)
 logger = logging.getLogger(__name__)
