@@ -104,13 +104,8 @@ def run_charmcraft(command: list[str], *, charmcraft_cache_dir: pathlib.Path = N
         )["version"]
     except FileNotFoundError:
         version = None
-    # TODO: bump min to 3.3
-    if packaging.version.parse(version or "0.0.0") < packaging.version.parse(
-        "3.2.2.post137+ge820f399"
-    ):
-        raise Exception(
-            f'charmcraft {version or "not"} installed. charmcraft >=3.2.2.post137+ge820f399 required'
-        )
+    if packaging.version.parse(version or "0.0.0") < packaging.version.parse("3.3.0"):
+        raise Exception(f'charmcraft {version or "not"} installed. charmcraft >=3.3.0 required')
     env = os.environ
     if charmcraft_cache_dir:
         env["CRAFT_SHARED_CACHE"] = str(charmcraft_cache_dir)
