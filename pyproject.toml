@@ -1,24 +1,32 @@
-[tool.poetry]
+[project]
 name = "charmcraftcache"
-version = "0.6.1"
+version = "0.6.2"
 description = "Fast first-time builds for charmcraft"
-authors = ["Carl Csaposs <carl.csaposs@canonical.com>"]
+authors = [
+    {name = "Carl Csaposs", email = "carl.csaposs@canonical.com"}
+]
 readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "typer>=0.15.1",
+    "requests>=2.32.3",
+    "packaging>=24.2",
+    "pyyaml>=6.0.2",
+]
 
-[tool.poetry.scripts]
+[project.urls]
+repository = "https://github.com/canonical/charmcraftcache"
+
+[project.scripts]
 ccc = "charmcraftcache._main:app"
 charmcraftcache = "charmcraftcache._main:app"
 
-[tool.poetry.dependencies]
-python = "^3.10"
-typer = {extras = ["all"], version = "^0.12.5"}
-requests = "^2.32.3"
-packaging = "^24.1"
-pyyaml = "^6.0.2"
-
 [build-system]
-requires = ["poetry-core"]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+requires-poetry = ">=2.0"
 
 [tool.ruff]
 line-length = 100
