@@ -581,12 +581,11 @@ def add(verbose: Verbose = False):
     params = {
         "template": "add_charm_branch.yaml",
         "labels": "add-charm",
-        "title": "Add charm branch",
     }
     result = get_remote_branch_and_url()
     if result:
         remote_branch, repo_name = result
-        params["repo"] = repo_name
+        params["repository"] = repo_name
         params["ref"] = remote_branch
     if pathlib.Path("charmcraft.yaml").exists():
         try:

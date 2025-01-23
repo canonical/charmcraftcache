@@ -1,6 +1,6 @@
 [project]
 name = "charmcraftcache"
-version = "0.6.2"
+version = "0.6.3"
 description = "Fast first-time builds for charmcraft"
 authors = [
     {name = "Carl Csaposs", email = "carl.csaposs@canonical.com"}
