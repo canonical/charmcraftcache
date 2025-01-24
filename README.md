@@ -13,7 +13,7 @@ pipx install charmcraftcache
 For best results, use [charmcraft's Poetry plugin](https://canonical-charmcraft.readthedocs-hosted.com/en/stable/reference/plugins/poetry_plugin/) or add `charm-strict-dependencies: true` to your charmcraft.yaml.
 
 ### Step 1: Update charmcraft.yaml to supported syntax
-Only [ST124 - Multi-base platforms in craft tools](https://docs.google.com/document/d/1QVHxZumruKVZ3yJ2C74qWhvs-ye5I9S6avMBDHs2YcQ/edit) "shorthand notation" syntax is supported
+Only ["multi-base shorthand notation" syntax](https://canonical-charmcraft.readthedocs-hosted.com/en/stable/reference/platforms/#multi-base-shorthand-notation) is supported
 
 #### Example
 ```yaml
