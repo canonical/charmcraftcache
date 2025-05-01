@@ -1,6 +1,6 @@
 [project]
 name = "charmcraftcache"
-version = "0.6.3"
+dynamic = ["version"]
 description = "Fast first-time builds for charmcraft"
 authors = [
     {name = "Carl Csaposs", email = "carl.csaposs@canonical.com"}
@@ -21,12 +21,22 @@ repository = "https://github.com/canonical/charmcraftcache"
 ccc = "charmcraftcache._main:app"
 charmcraftcache = "charmcraftcache._main:app"
 
-[build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
-
 [tool.poetry]
+version = "0.0.0"  # Overriden by poetry-dynamic-versioning
 requires-poetry = ">=2.0"
+
+[tool.poetry.requires-plugins]
+poetry-dynamic-versioning = { version = ">=1.0.0,<2.0.0", extras = ["plugin"] }
+
+[tool.poetry-dynamic-versioning]
+enable = true
+vcs = "git"
+dirty = true
+strict = true
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
+build-backend = "poetry_dynamic_versioning.backend"
 
 [tool.ruff]
 line-length = 100
