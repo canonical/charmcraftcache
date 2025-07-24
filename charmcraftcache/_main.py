@@ -105,7 +105,7 @@ def run_charmcraft(command: list[str], *, charmcraft_cache_dir: pathlib.Path = N
     except FileNotFoundError:
         version = None
     if packaging.version.parse(version or "0.0.0") < packaging.version.parse("3.3.0"):
-        raise Exception(f'charmcraft {version or "not"} installed. charmcraft >=3.3.0 required')
+        raise Exception(f"charmcraft {version or 'not'} installed. charmcraft >=3.3.0 required")
     env = os.environ
     if charmcraft_cache_dir:
         env["CRAFT_SHARED_CACHE"] = str(charmcraft_cache_dir)
@@ -312,14 +312,14 @@ def pack(
         state.verbose = True
     if context.args:
         logger.info(
-            f'Passing unrecognized arguments to `charmcraft pack`: {" ".join(context.args)}'
+            f"Passing unrecognized arguments to `charmcraft pack`: {' '.join(context.args)}"
         )
     charmcraft_yaml = pathlib.Path("charmcraft.yaml")
     if not charmcraft_yaml.exists():
         raise FileNotFoundError(
             "charmcraft.yaml not found. `cd` into the directory with charmcraft.yaml"
         )
-    architecture = {"x86_64": "amd64", "aarch64": "arm64"}[platform.machine()]
+    architecture = {"x86_64": "amd64", "aarch64": "arm64", "s390x": "s390x"}[platform.machine()]
     if selected_platforms is None:
         platforms = [
             platform_
@@ -475,7 +475,7 @@ def pack(
     charm_cache = (
         cache_directory
         / "charms"
-        / f'{github_repository.replace("/", "_")}:{str(relative_path_to_charmcraft_yaml).replace("/", "_")}'
+        / f"{github_repository.replace('/', '_')}:{str(relative_path_to_charmcraft_yaml).replace('/', '_')}"
     )
     all_archives_fully_unpacked = charm_cache / "all_archives_fully_unpacked"
     if not all_archives_fully_unpacked.exists() and charm_cache.exists():
