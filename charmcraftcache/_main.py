@@ -490,8 +490,16 @@ def pack(
             logger.debug(f"Cache already unpacked for platform: {repr(asset.platform)}")
             continue
         # TODO: remove hardcoded paths
-        build_base_subdirectory = charmcraft_cache_dir / "charmcraft-buildd-base-v7"
+        build_base_subdirectory = charmcraft_cache_dir / "charmcraft-buildd-base-v7.1"
         build_base_subdirectory.mkdir(parents=True)
+        # Backwards compatability for charmcraft >=3.3, <4
+        c33_base_subdirectory = charmcraft_cache_dir / "charmcraft-buildd-base-v7"
+        if not c33_base_subdirectory.is_symlink():
+            try:
+                shutil.rmtree(c33_base_subdirectory)
+            except FileNotFoundError:
+                pass
+            c33_base_subdirectory.symlink_to(build_base_subdirectory)
         with tarfile.open(asset.path) as file:
             file.extractall(build_base_subdirectory, filter="data")
         logger.debug(f"Unpacked cache for platform: {repr(asset.platform)}")
