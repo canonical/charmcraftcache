@@ -10,6 +10,7 @@ import platform
 import shutil
 import subprocess
 import tarfile
+import typing
 
 import packaging.version
 import requests
@@ -17,7 +18,6 @@ import rich.console
 import rich.progress
 import rich.text
 import typer
-import typing
 import yaml
 
 from . import _platforms
