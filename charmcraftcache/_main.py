@@ -80,7 +80,7 @@ class State:
         if value == self._verbose:
             return
         self._verbose = value
-        log_format = "\[charmcraftcache] {levelname} {message}"
+        log_format = r"\[charmcraftcache] {levelname} {message}"
         if value:
             log_format = "{asctime} " + log_format
             logger.setLevel(logging.DEBUG)
@@ -450,7 +450,7 @@ def pack(
             assets_to_download.append(asset)
     with rich.progress.Progress(console=console) as progress:
         task = progress.add_task(
-            description="\[charmcraftcache] Downloading cache",
+            description=r"\[charmcraftcache] Downloading cache",
             total=sum(asset.size for asset in assets_to_download),
         )
         # Use temporary path in case download is interrupted
