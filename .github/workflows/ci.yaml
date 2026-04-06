@@ -1,0 +1,17 @@
+name: Tests
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+  # Triggered on push by .github/workflows/release.yaml
+  workflow_call:
+
+jobs:
+  lint-workflows:
+    name: Lint .github/workflows/
+    uses: canonical/data-platform-workflows/.github/workflows/lint_workflows.yaml@v48.0.4
+    permissions:
+      contents: read
